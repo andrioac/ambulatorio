@@ -89,6 +89,12 @@ final class AtribuicaoPerfilController extends Controller
 
             $quantidade = AtribuicaoPerfil::query()
                 ->where('ativo', true)
+                ->where(function ($query): void {
+                    $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', now());
+                })
+                ->where(function ($query): void {
+                    $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', now());
+                })
                 ->whereHas('usuario', fn ($query) => $query->where('ativo', true))
                 ->whereHas('perfil', fn ($query) => $query
                     ->where('chave', 'superadministrador_sistema')
