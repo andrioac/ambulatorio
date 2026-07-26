@@ -215,7 +215,7 @@ class ModulosAdministrativosTest extends TestCase
                     $emails = $usuarios->pluck('email');
 
                     return $emails->contains($gestor->email)
-                        && ! $emails->contains($administrador->email);
+                        && $emails->contains($administrador->email) === false;
                 }));
     }
 
@@ -226,8 +226,9 @@ class ModulosAdministrativosTest extends TestCase
         $this->actingAs($usuario)->get('/')
             ->assertInertia(fn (Assert $pagina) => $pagina
                 ->where('auth.usuario.id', $usuario->id)
-                ->where('auth.capacidades', fn (Collection $capacidades) =>
-                    $capacidades->get('profissionais.visualizar') === true
-                    && $capacidades->get('auditoria.visualizar') === true));
+                ->where('auth.capacidades', function (Collection $capacidades): bool {
+                    return $capacidades->get('profissionais.visualizar') === true
+                        && $capacidades->get('auditoria.visualizar') === true;
+                }));
     }
 }
