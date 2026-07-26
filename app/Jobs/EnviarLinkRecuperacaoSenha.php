@@ -11,9 +11,7 @@ final class EnviarLinkRecuperacaoSenha implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public readonly string $email)
-    {
-    }
+    public function __construct(public readonly string $email) {}
 
     public function handle(): void
     {
@@ -22,7 +20,7 @@ final class EnviarLinkRecuperacaoSenha implements ShouldQueue
             ->where('ativo', true)
             ->exists();
 
-        if (! $usuarioAtivo) {
+        if ($usuarioAtivo === false) {
             return;
         }
 
