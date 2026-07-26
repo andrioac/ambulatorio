@@ -4,20 +4,32 @@ O desenvolvimento será incremental. Cada sprint deve terminar com uma entrega d
 
 O Escolume é a base técnica de referência do projeto. Componentes genéricos compatíveis com Laravel 13, Inertia.js e Vue 3 serão transplantados para o Ambulatório e mantidos de forma independente após a cópia.
 
-| Sprint | Entrega principal |
-|---|---|
-| S00 | Ambiente Docker reproduzível |
-| S01 | Transplante da fundação técnica do Escolume |
-| S02 | Organizações e unidades de saúde |
-| S03 | Autorização escopada, usuários e perfis |
-| S04 | Auditoria persistente e segurança HTTP |
-| S05 | Profissionais e vínculos com unidades |
-| S06 | Cadastro e pesquisa de pacientes |
-| S07 | Recepção, atendimento inicial e fila |
-| S08 | Acolhimento, sinais vitais e triagem |
-| S09 | Prontuário longitudinal e consulta SOAP |
-| S10 | Receituário e documentos clínicos básicos |
-| S11 | Relatórios, hardening e preparação da primeira versão |
+| Sprint | Entrega principal | Estado |
+|---|---|---|
+| S00 | Ambiente Docker reproduzível | Concluída |
+| S01 | Transplante da fundação técnica do Escolume | Concluída |
+| S02 | Organizações e unidades de saúde | Fundação concluída; interface incluída na S05 |
+| S03 | Autorização escopada, usuários e perfis | Fundação concluída; interface incluída na S05 |
+| S04 | Auditoria persistente e segurança HTTP | Fundação concluída; consulta incluída na S05 |
+| S05 | Profissionais e vínculos com unidades | Em validação |
+| S06 | Cadastro e pesquisa de pacientes | Planejada |
+| S07 | Recepção, atendimento inicial e fila | Planejada |
+| S08 | Acolhimento, sinais vitais e triagem | Planejada |
+| S09 | Prontuário longitudinal e consulta SOAP | Planejada |
+| S10 | Receituário e documentos clínicos básicos | Planejada |
+| S11 | Relatórios, hardening e preparação da primeira versão | Planejada |
+
+## Entregas administrativas consolidadas na S05
+
+Para tornar a gestão de profissionais demonstrável e segura, a S05 também conclui as interfaces administrativas que dependiam da fundação anterior:
+
+- organizações e unidades de saúde;
+- usuários e atribuições de perfil;
+- catálogo de perfis e permissões;
+- consulta escopada da auditoria;
+- capacidades compartilhadas com o Inertia;
+- menus condicionados às permissões;
+- páginas de erro 403, 404, 419 e 422.
 
 ## Estratégia de transplante
 
