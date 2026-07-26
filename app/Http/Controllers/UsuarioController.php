@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Aplicacao\Auditoria\RegistradorAuditoria;
 use App\Aplicacao\Autorizacao\AtribuirPerfilUsuario;
 use App\Aplicacao\Autorizacao\AutorizadorEscopado;
+use App\Models\AtribuicaoPerfil;
 use App\Models\OrganizacaoSaude;
 use App\Models\Perfil;
 use App\Models\UnidadeSaude;
@@ -138,6 +139,10 @@ final class UsuarioController extends Controller
             throw ValidationException::withMessages(['ativo' => 'Você não pode inativar o próprio usuário.']);
         }
 
+        if ($usuario->ativo && ! $dados['ativo']) {
+            $this->protegerUltimoSuperadministrador($usuario);
+        }
+
         $anteriores = $usuario->only(['name', 'email', 'ativo']);
         $atualizacao = [
             'name' => $dados['name'],
@@ -187,16 +192,28 @@ final class UsuarioController extends Controller
     {
         $organizacoes = $autorizador->organizacoesPermitidas($request->user(), 'usuarios.administrar');
         $unidades = $autorizador->unidadesPermitidas($request->user(), 'usuarios.administrar');
+        $podeEscopoSistema = $autorizador->possuiEscopoSistema($request->user(), 'usuarios.administrar');
 
         return [
-            'perfis' => Perfil::query()->with('permissoes:id,chave')->where('ativo', true)->orderBy('nome')->get(),
+            'perfis' => Perfil::query()
+                ->with('permissoes:id,chave')
+                ->where('ativo', true)
+                ->when(! $podeEscopoSistema, fn ($query) => $query->where('chave', '!=', 'superadministrador_sistema'))
+                ->orderBy('nome')
+                ->get(),
             'organizacoes' => OrganizacaoSaude::query()
                 ->when($organizacoes !== null, fn ($query) => $query->whereKey($organizacoes))
-                ->where('ativo', true)->orderBy('nome')->get(['id', 'nome']),
-            'unidades' => UnidadeSaude::query()->with('organizacao:id,nome')
+                ->where('ativo', true)
+                ->orderBy('nome')
+                ->get(['id', 'nome']),
+            'unidades' => UnidadeSaude::query()
+                ->with('organizacao:id,nome')
                 ->when($unidades !== null, fn ($query) => $query->whereKey($unidades))
-                ->where('ativo', true)->orderBy('nome')->get(['id', 'organizacao_saude_id', 'nome']),
-            'podeEscopoSistema' => $autorizador->possuiEscopoSistema($request->user(), 'usuarios.administrar'),
+                ->where('ativo', true)
+                ->whereHas('organizacao', fn ($query) => $query->where('ativo', true))
+                ->orderBy('nome')
+                ->get(['id', 'organizacao_saude_id', 'nome']),
+            'podeEscopoSistema' => $podeEscopoSistema,
         ];
     }
 
@@ -240,12 +257,49 @@ final class UsuarioController extends Controller
         });
     }
 
-    private function auditarAtribuicao(Request $request, RegistradorAuditoria $auditoria, User $usuario, $atribuicao): void
+    private function protegerUltimoSuperadministrador(User $usuario): void
     {
+        $possuiSuperadministrador = $usuario->atribuicoesPerfil()
+            ->where('ativo', true)
+            ->whereHas('perfil', fn ($query) => $query
+                ->where('chave', 'superadministrador_sistema')
+                ->where('ativo', true))
+            ->exists();
+
+        if (! $possuiSuperadministrador) {
+            return;
+        }
+
+        $outrosAtivos = AtribuicaoPerfil::query()
+            ->where('ativo', true)
+            ->where('user_id', '!=', $usuario->id)
+            ->whereHas('usuario', fn ($query) => $query->where('ativo', true))
+            ->whereHas('perfil', fn ($query) => $query
+                ->where('chave', 'superadministrador_sistema')
+                ->where('ativo', true))
+            ->exists();
+
+        if (! $outrosAtivos) {
+            throw ValidationException::withMessages([
+                'ativo' => 'O sistema deve manter ao menos um superadministrador ativo.',
+            ]);
+        }
+    }
+
+    private function auditarAtribuicao(
+        Request $request,
+        RegistradorAuditoria $auditoria,
+        User $usuario,
+        AtribuicaoPerfil $atribuicao,
+    ): void {
+        $atribuicao->loadMissing('unidade');
+        $organizacaoId = $atribuicao->organizacao_saude_id
+            ?? $atribuicao->unidade?->organizacao_saude_id;
+
         $auditoria->registrar('usuario.perfil_atribuido', [
-            'entidade_tipo' => $atribuicao::class,
+            'entidade_tipo' => AtribuicaoPerfil::class,
             'entidade_id' => $atribuicao->id,
-            'organizacao_saude_id' => $atribuicao->organizacao_saude_id,
+            'organizacao_saude_id' => $organizacaoId,
             'unidade_saude_id' => $atribuicao->unidade_saude_id,
             'dados_posteriores' => [
                 'user_id' => $usuario->id,
