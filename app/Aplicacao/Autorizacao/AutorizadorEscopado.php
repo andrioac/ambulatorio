@@ -11,10 +11,6 @@ class AutorizadorEscopado
 {
     public function possuiPermissao(User $usuario, string $permissao): bool
     {
-        if (! $usuario->ativo) {
-            return false;
-        }
-
         return $this->atribuicoesValidas($usuario, $permissao)->exists();
     }
 
@@ -27,10 +23,6 @@ class AutorizadorEscopado
 
     public function permite(User $usuario, string $permissao, ?int $organizacaoId = null, ?int $unidadeId = null): bool
     {
-        if (! $usuario->ativo) {
-            return false;
-        }
-
         return $this->atribuicoesValidas($usuario, $permissao)
             ->get()
             ->contains(fn (AtribuicaoPerfil $atribuicao) => $this->alcanca($atribuicao, $organizacaoId, $unidadeId));
@@ -105,7 +97,13 @@ class AutorizadorEscopado
 
     private function atribuicoesValidas(User $usuario, string $permissao): HasMany
     {
-        return $usuario->atribuicoesPerfil()
+        $atribuicoes = $usuario->atribuicoesPerfil();
+
+        if (! $usuario->ativo) {
+            return $atribuicoes->whereRaw('1 = 0');
+        }
+
+        return $atribuicoes
             ->where('ativo', true)
             ->where(function ($query): void {
                 $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', now());
