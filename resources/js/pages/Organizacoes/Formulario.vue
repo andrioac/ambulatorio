@@ -12,6 +12,7 @@ const form = useForm({
     ativo: props.organizacao?.ativo ?? true,
 });
 const salvar = () => edicao ? form.put(`/organizacoes/${props.organizacao.id}`) : form.post('/organizacoes');
+const atualizarCnpj = (evento: Event) => { form.cnpj = formatarCnpj((evento.target as HTMLInputElement).value); };
 </script>
 
 <template>
@@ -26,7 +27,7 @@ const salvar = () => edicao ? form.put(`/organizacoes/${props.organizacao.id}`) 
             <div class="form-grid">
                 <label class="campo-formulario form-grid--duplo"><span class="campo-formulario__rotulo">Nome *</span><input v-model="form.nome" class="campo-formulario__controle" :disabled="!podeAdministrar" required /><small class="campo-formulario__erro">{{ form.errors.nome }}</small></label>
                 <label class="campo-formulario"><span class="campo-formulario__rotulo">Sigla</span><input v-model="form.sigla" class="campo-formulario__controle" maxlength="20" :disabled="!podeAdministrar" /><small class="campo-formulario__erro">{{ form.errors.sigla }}</small></label>
-                <label class="campo-formulario"><span class="campo-formulario__rotulo">CNPJ</span><input :value="form.cnpj" class="campo-formulario__controle" inputmode="numeric" maxlength="18" :disabled="!podeAdministrar" @input="form.cnpj = formatarCnpj(($event.target as HTMLInputElement).value)" /><small class="campo-formulario__erro">{{ form.errors.cnpj }}</small></label>
+                <label class="campo-formulario"><span class="campo-formulario__rotulo">CNPJ</span><input :value="form.cnpj" class="campo-formulario__controle" inputmode="numeric" maxlength="18" :disabled="!podeAdministrar" @input="atualizarCnpj" /><small class="campo-formulario__erro">{{ form.errors.cnpj }}</small></label>
             </div>
             <div v-if="podeAdministrar" class="form-acoes"><button class="botao botao--primario" :disabled="form.processing">Salvar organização</button></div>
         </form>
