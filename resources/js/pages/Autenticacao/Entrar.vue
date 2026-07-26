@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import AppBrand from '../../components/AppBrand.vue';
 import FormField from '../../components/FormField.vue';
 
+const logoUrl = '/brand/logo-mark.svg';
 const formulario = useForm({ email: '', password: '', remember: false });
 const enviar = () => formulario.post('/entrar', { onFinish: () => formulario.reset('password') });
 </script>
@@ -16,7 +17,7 @@ const enviar = () => formulario.post('/entrar', { onFinish: () => formulario.res
         </header>
         <main class="auth-page">
             <section class="auth-hero">
-                <img src="/brand/logo-mark.svg" alt="" />
+                <img :src="logoUrl" alt="" />
                 <h1>Ambulatório<br />Inteligente</h1>
                 <p class="auth-hero__slogan">Cuidado e Atendimento Humanizado</p>
                 <p>Um sistema integrado para promover cuidado, acolhimento e eficiência no atendimento em saúde.</p>
