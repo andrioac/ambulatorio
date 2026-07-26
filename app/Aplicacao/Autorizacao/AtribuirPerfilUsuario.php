@@ -28,6 +28,12 @@ final class AtribuirPerfilUsuario
     ): AtribuicaoPerfil {
         [$organizacaoId, $unidadeId] = $this->validarEscopo($tipoEscopo, $organizacaoId, $unidadeId);
 
+        if ($tipoEscopo === 'sistema' && ! $this->autorizador->possuiEscopoSistema($ator, 'usuarios.administrar')) {
+            throw ValidationException::withMessages([
+                'perfil_id' => 'Somente um administrador de sistema pode conceder atribuições no escopo de sistema.',
+            ]);
+        }
+
         $this->autorizador->exigir($ator, 'usuarios.administrar', $organizacaoId, $unidadeId);
 
         if (! $perfil->ativo) {
