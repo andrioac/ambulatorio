@@ -9,6 +9,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -28,14 +29,14 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request, \Throwable $exception) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request, Throwable $exception) => $request->is('api/*') || $request->expectsJson(),
         );
 
         $exceptions->respond(function (Response $response): Response {
             $request = request();
             $status = $response->getStatusCode();
 
-            if (! $request->expectsJson() && in_array($status, [403, 404, 419, 422], true)) {
+            if ($request->expectsJson() === false && in_array($status, [403, 404, 419, 422], true)) {
                 return Inertia::render('Erro', ['status' => $status])
                     ->toResponse($request)
                     ->setStatusCode($status);
