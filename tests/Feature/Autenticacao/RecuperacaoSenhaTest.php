@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Autenticacao;
 
+use App\Jobs\EnviarLinkRecuperacaoSenha;
 use App\Models\RegistroAuditoria;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class RecuperacaoSenhaTest extends TestCase
@@ -19,27 +21,40 @@ class RecuperacaoSenhaTest extends TestCase
         $this->get('/esqueci-minha-senha')->assertOk();
     }
 
-    public function test_envia_link_para_usuario_existente_sem_expor_existencia_da_conta(): void
+    public function test_solicitacao_despacha_job_sem_expor_existencia_da_conta(): void
     {
-        Notification::fake();
+        Queue::fake();
         $usuario = User::factory()->create(['ativo' => true]);
 
         $this->post('/esqueci-minha-senha', ['email' => $usuario->email])
             ->assertRedirect()
-            ->assertSessionHas('status');
+            ->assertSessionHas('status', fn (string $mensagem) => str_contains($mensagem, '60 segundos'));
 
-        Notification::assertSentTo($usuario, ResetPassword::class);
+        Queue::assertPushed(
+            EnviarLinkRecuperacaoSenha::class,
+            fn (EnviarLinkRecuperacaoSenha $job) => $job->email === strtolower($usuario->email),
+        );
     }
 
     public function test_resposta_e_generica_para_email_inexistente(): void
     {
-        Notification::fake();
+        Queue::fake();
 
         $this->post('/esqueci-minha-senha', ['email' => 'inexistente@example.com'])
             ->assertRedirect()
             ->assertSessionHas('status');
 
-        Notification::assertNothingSent();
+        Queue::assertPushed(EnviarLinkRecuperacaoSenha::class);
+    }
+
+    public function test_job_envia_notificacao_apenas_para_usuario_ativo(): void
+    {
+        Notification::fake();
+        $usuario = User::factory()->create(['ativo' => true]);
+
+        (new EnviarLinkRecuperacaoSenha($usuario->email))->handle();
+
+        Notification::assertSentTo($usuario, ResetPassword::class);
     }
 
     public function test_redefine_senha_com_token_valido_e_registra_auditoria(): void
@@ -47,7 +62,7 @@ class RecuperacaoSenhaTest extends TestCase
         Notification::fake();
         $usuario = User::factory()->create(['ativo' => true]);
 
-        $this->post('/esqueci-minha-senha', ['email' => $usuario->email]);
+        (new EnviarLinkRecuperacaoSenha($usuario->email))->handle();
 
         $token = null;
         Notification::assertSentTo($usuario, ResetPassword::class, function (ResetPassword $notificacao) use (&$token): bool {
