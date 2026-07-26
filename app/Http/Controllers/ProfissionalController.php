@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Aplicacao\Auditoria\RegistradorAuditoria;
 use App\Aplicacao\Profissionais\SalvarProfissional;
 use App\Aplicacao\Profissionais\SalvarVinculoProfissionalUnidade;
 use App\Models\Profissional;
@@ -44,9 +45,15 @@ final class ProfissionalController extends Controller
         return $this->formulario();
     }
 
-    public function store(Request $request, SalvarProfissional $salvar): RedirectResponse
+    public function store(Request $request, SalvarProfissional $salvar, RegistradorAuditoria $auditoria): RedirectResponse
     {
         $profissional = $salvar->executar($this->dadosValidados($request));
+
+        $auditoria->registrar('profissional.criado', [
+            'entidade_tipo' => Profissional::class,
+            'entidade_id' => $profissional->id,
+            'dados_posteriores' => $profissional->only($this->camposAuditaveis()),
+        ], $request);
 
         return redirect()->route('profissionais.edit', $profissional)->with('sucesso', 'Profissional cadastrado com sucesso.');
     }
@@ -58,14 +65,22 @@ final class ProfissionalController extends Controller
         return $this->formulario($profissional);
     }
 
-    public function update(Request $request, Profissional $profissional, SalvarProfissional $salvar): RedirectResponse
+    public function update(Request $request, Profissional $profissional, SalvarProfissional $salvar, RegistradorAuditoria $auditoria): RedirectResponse
     {
-        $salvar->executar($this->dadosValidados($request, $profissional), $profissional);
+        $anteriores = $profissional->only($this->camposAuditaveis());
+        $atualizado = $salvar->executar($this->dadosValidados($request, $profissional), $profissional);
+
+        $auditoria->registrar('profissional.atualizado', [
+            'entidade_tipo' => Profissional::class,
+            'entidade_id' => $atualizado->id,
+            'dados_anteriores' => $anteriores,
+            'dados_posteriores' => $atualizado->only($this->camposAuditaveis()),
+        ], $request);
 
         return back()->with('sucesso', 'Profissional atualizado com sucesso.');
     }
 
-    public function salvarVinculo(Request $request, Profissional $profissional, SalvarVinculoProfissionalUnidade $salvar): RedirectResponse
+    public function salvarVinculo(Request $request, Profissional $profissional, SalvarVinculoProfissionalUnidade $salvar, RegistradorAuditoria $auditoria): RedirectResponse
     {
         $dados = $request->validate([
             'unidade_saude_id' => ['required', 'integer', 'exists:unidades_saude,id'],
@@ -73,20 +88,45 @@ final class ProfissionalController extends Controller
             'vigente_ate' => ['nullable', 'date', 'after_or_equal:vigente_de'],
         ]);
 
-        $salvar->executar(
+        $unidade = UnidadeSaude::query()->findOrFail($dados['unidade_saude_id']);
+        $vinculo = $salvar->executar(
             $profissional,
-            UnidadeSaude::query()->findOrFail($dados['unidade_saude_id']),
+            $unidade,
             $dados['vigente_de'] ?? null,
             $dados['vigente_ate'] ?? null,
         );
 
+        $auditoria->registrar('profissional.vinculo_criado', [
+            'entidade_tipo' => $vinculo::class,
+            'entidade_id' => $vinculo->id,
+            'organizacao_saude_id' => $unidade->organizacao_saude_id,
+            'unidade_saude_id' => $unidade->id,
+            'dados_posteriores' => [
+                'profissional_id' => $profissional->id,
+                'unidade_saude_id' => $unidade->id,
+                'vigente_de' => $vinculo->vigente_de?->toDateString(),
+                'vigente_ate' => $vinculo->vigente_ate?->toDateString(),
+                'ativo' => $vinculo->ativo,
+            ],
+        ], $request);
+
         return back()->with('sucesso', 'Vínculo com unidade salvo com sucesso.');
     }
 
-    public function removerVinculo(Profissional $profissional, int $vinculo): RedirectResponse
+    public function removerVinculo(Request $request, Profissional $profissional, int $vinculo, RegistradorAuditoria $auditoria): RedirectResponse
     {
-        $registro = $profissional->vinculosUnidades()->findOrFail($vinculo);
+        $registro = $profissional->vinculosUnidades()->with('unidade')->findOrFail($vinculo);
+        $anteriores = ['ativo' => $registro->ativo];
         $registro->update(['ativo' => false]);
+
+        $auditoria->registrar('profissional.vinculo_desativado', [
+            'entidade_tipo' => $registro::class,
+            'entidade_id' => $registro->id,
+            'organizacao_saude_id' => $registro->unidade->organizacao_saude_id,
+            'unidade_saude_id' => $registro->unidade_saude_id,
+            'dados_anteriores' => $anteriores,
+            'dados_posteriores' => ['ativo' => false],
+        ], $request);
 
         return back()->with('sucesso', 'Vínculo desativado com sucesso.');
     }
@@ -114,5 +154,13 @@ final class ProfissionalController extends Controller
             'conselho_uf' => ['nullable', 'string', 'size:2'],
             'ativo' => ['boolean'],
         ]);
+    }
+
+    private function camposAuditaveis(): array
+    {
+        return [
+            'user_id', 'nome', 'cpf', 'cns', 'categoria', 'cbo',
+            'conselho_tipo', 'conselho_numero', 'conselho_uf', 'ativo',
+        ];
     }
 }
