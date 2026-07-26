@@ -5,6 +5,7 @@ namespace Tests\Feature\Autorizacao;
 use App\Models\OrganizacaoSaude;
 use App\Models\UnidadeSaude;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -35,9 +36,9 @@ class EscoposInativosTest extends TestCase
         $this->actingAs($gestor)->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $pagina) => $pagina
-                ->where('auth.capacidades', fn (array $capacidades) =>
-                    $capacidades['profissionais.visualizar'] === false
-                    && $capacidades['auditoria.visualizar'] === false));
+                ->where('auth.capacidades', fn (Collection $capacidades) =>
+                    $capacidades->get('profissionais.visualizar') === false
+                    && $capacidades->get('auditoria.visualizar') === false));
     }
 
     public function test_organizacao_inativa_invalida_permissao_da_unidade_filha(): void
