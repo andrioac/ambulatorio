@@ -5,7 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::create('registros_auditoria', function (Blueprint $table): void {
@@ -26,6 +27,10 @@ return new class extends Migration {
             $table->index(['organizacao_saude_id', 'unidade_saude_id']);
         });
 
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::unprepared(<<<'SQL'
 CREATE OR REPLACE FUNCTION bloquear_mutacao_registro_auditoria()
 RETURNS trigger AS $$
@@ -42,8 +47,11 @@ SQL);
 
     public function down(): void
     {
-        DB::unprepared('DROP TRIGGER IF EXISTS registros_auditoria_append_only ON registros_auditoria');
-        DB::unprepared('DROP FUNCTION IF EXISTS bloquear_mutacao_registro_auditoria');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::unprepared('DROP TRIGGER IF EXISTS registros_auditoria_append_only ON registros_auditoria');
+            DB::unprepared('DROP FUNCTION IF EXISTS bloquear_mutacao_registro_auditoria');
+        }
+
         Schema::dropIfExists('registros_auditoria');
     }
 };
