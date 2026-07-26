@@ -11,6 +11,7 @@ use App\Models\UnidadeSaude;
 use App\Models\User;
 use Database\Seeders\CatalogoAutorizacaoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -210,8 +211,8 @@ class ModulosAdministrativosTest extends TestCase
         $this->actingAs($gestor)->get('/usuarios')
             ->assertOk()
             ->assertInertia(fn (Assert $pagina) => $pagina
-                ->where('usuarios.data', function (array $usuarios) use ($gestor, $administrador): bool {
-                    $emails = collect($usuarios)->pluck('email');
+                ->where('usuarios.data', function (Collection $usuarios) use ($gestor, $administrador): bool {
+                    $emails = $usuarios->pluck('email');
 
                     return $emails->contains($gestor->email)
                         && ! $emails->contains($administrador->email);
@@ -225,8 +226,8 @@ class ModulosAdministrativosTest extends TestCase
         $this->actingAs($usuario)->get('/')
             ->assertInertia(fn (Assert $pagina) => $pagina
                 ->where('auth.usuario.id', $usuario->id)
-                ->where('auth.capacidades', fn (array $capacidades) =>
-                    $capacidades['profissionais.visualizar'] === true
-                    && $capacidades['auditoria.visualizar'] === true));
+                ->where('auth.capacidades', fn (Collection $capacidades) =>
+                    $capacidades->get('profissionais.visualizar') === true
+                    && $capacidades->get('auditoria.visualizar') === true));
     }
 }
