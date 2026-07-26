@@ -183,6 +183,41 @@ class ModulosAdministrativosTest extends TestCase
                 ->where('registros.data.0.evento', 'evento.a'));
     }
 
+    public function test_auditoria_de_unidade_nao_vaza_eventos_da_organizacao(): void
+    {
+        $organizacao = OrganizacaoSaude::query()->create(['nome' => 'Organização', 'ativo' => true]);
+        $unidadeA = UnidadeSaude::query()->create(['organizacao_saude_id' => $organizacao->id, 'nome' => 'Unidade A', 'tipo' => 'ubs', 'ativo' => true]);
+        $unidadeB = UnidadeSaude::query()->create(['organizacao_saude_id' => $organizacao->id, 'nome' => 'Unidade B', 'tipo' => 'ubs', 'ativo' => true]);
+        $gestor = $this->criarUsuarioComPerfil('gestor_unidade', 'unidade', unidadeId: $unidadeA->id);
+        RegistroAuditoria::query()->create(['evento' => 'evento.unidade.a', 'organizacao_saude_id' => $organizacao->id, 'unidade_saude_id' => $unidadeA->id, 'ocorrido_em' => now()]);
+        RegistroAuditoria::query()->create(['evento' => 'evento.unidade.b', 'organizacao_saude_id' => $organizacao->id, 'unidade_saude_id' => $unidadeB->id, 'ocorrido_em' => now()]);
+        RegistroAuditoria::query()->create(['evento' => 'evento.organizacao', 'organizacao_saude_id' => $organizacao->id, 'ocorrido_em' => now()]);
+
+        $this->actingAs($gestor)->get('/auditoria')
+            ->assertOk()
+            ->assertInertia(fn (Assert $pagina) => $pagina
+                ->has('registros.data', 1)
+                ->where('registros.data.0.evento', 'evento.unidade.a'));
+    }
+
+    public function test_gestor_de_unidade_nao_visualiza_usuario_da_organizacao_inteira(): void
+    {
+        $organizacao = OrganizacaoSaude::query()->create(['nome' => 'Organização', 'ativo' => true]);
+        $unidade = UnidadeSaude::query()->create(['organizacao_saude_id' => $organizacao->id, 'nome' => 'Unidade', 'tipo' => 'ubs', 'ativo' => true]);
+        $gestor = $this->criarUsuarioComPerfil('gestor_unidade', 'unidade', unidadeId: $unidade->id, atributos: ['email' => 'gestor-unidade@example.com']);
+        $administrador = $this->criarUsuarioComPerfil('administrador_organizacao', 'organizacao', organizacaoId: $organizacao->id, atributos: ['email' => 'admin-organizacao@example.com']);
+
+        $this->actingAs($gestor)->get('/usuarios')
+            ->assertOk()
+            ->assertInertia(fn (Assert $pagina) => $pagina
+                ->where('usuarios.data', function (array $usuarios) use ($gestor, $administrador): bool {
+                    $emails = collect($usuarios)->pluck('email');
+
+                    return $emails->contains($gestor->email)
+                        && ! $emails->contains($administrador->email);
+                }));
+    }
+
     public function test_inertia_compartilha_capacidades_do_usuario(): void
     {
         $usuario = $this->criarUsuarioComPerfil();
@@ -190,7 +225,8 @@ class ModulosAdministrativosTest extends TestCase
         $this->actingAs($usuario)->get('/')
             ->assertInertia(fn (Assert $pagina) => $pagina
                 ->where('auth.usuario.id', $usuario->id)
-                ->where('auth.capacidades.profissionais.visualizar', true)
-                ->where('auth.capacidades.auditoria.visualizar', true));
+                ->where('auth.capacidades', fn (array $capacidades) =>
+                    $capacidades['profissionais.visualizar'] === true
+                    && $capacidades['auditoria.visualizar'] === true));
     }
 }
