@@ -33,6 +33,22 @@ docker compose exec app php artisan migrate
 Aplicação: http://localhost:8082  
 Mailpit: http://localhost:8026
 
+## Criar o primeiro administrador
+
+Crie a identidade de acesso:
+
+```powershell
+docker compose exec app php artisan ambulatorio:criar-usuario "Administrador" admin@example.com --senha="Senha1234"
+```
+
+Depois atribua o perfil global de superadministrador:
+
+```powershell
+docker compose exec app php artisan ambulatorio:atribuir-superadministrador admin@example.com --force
+```
+
+Sem os argumentos ou opções, os comandos solicitam os dados interativamente. A senha é solicitada de forma oculta.
+
 ## Dependências e validações
 
 ```powershell
