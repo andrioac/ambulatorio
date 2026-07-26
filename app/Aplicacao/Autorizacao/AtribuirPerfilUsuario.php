@@ -12,9 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 final class AtribuirPerfilUsuario
 {
-    public function __construct(private readonly AutorizadorEscopado $autorizador)
-    {
-    }
+    public function __construct(private readonly AutorizadorEscopado $autorizador) {}
 
     public function executar(
         User $ator,
@@ -32,7 +30,7 @@ final class AtribuirPerfilUsuario
             $unidadeId,
         );
 
-        if ($tipoEscopo === 'sistema' && ! $this->autorizador->possuiEscopoSistema($ator, 'usuarios.administrar')) {
+        if ($tipoEscopo === 'sistema' && $this->autorizador->possuiEscopoSistema($ator, 'usuarios.administrar') === false) {
             throw ValidationException::withMessages([
                 'perfil_id' => 'Somente um administrador de sistema pode conceder atribuições no escopo de sistema.',
             ]);
@@ -40,19 +38,19 @@ final class AtribuirPerfilUsuario
 
         $this->autorizador->exigir($ator, 'usuarios.administrar', $organizacaoAlvoId, $unidadePersistidaId);
 
-        if (! $perfil->ativo) {
+        if ($perfil->ativo === false) {
             throw ValidationException::withMessages(['perfil_id' => 'O perfil selecionado está inativo.']);
         }
 
         if ($perfil->chave === 'superadministrador_sistema'
-            && ($tipoEscopo !== 'sistema' || ! $this->autorizador->possuiEscopoSistema($ator, 'usuarios.administrar'))) {
+            && ($tipoEscopo !== 'sistema' || $this->autorizador->possuiEscopoSistema($ator, 'usuarios.administrar') === false)) {
             throw ValidationException::withMessages(['perfil_id' => 'Somente um administrador de sistema pode conceder este perfil.']);
         }
 
         $perfil->loadMissing('permissoes');
 
         foreach ($perfil->permissoes as $permissao) {
-            if (! $this->autorizador->permite($ator, $permissao->chave, $organizacaoAlvoId, $unidadePersistidaId)) {
+            if ($this->autorizador->permite($ator, $permissao->chave, $organizacaoAlvoId, $unidadePersistidaId) === false) {
                 throw ValidationException::withMessages([
                     'perfil_id' => 'O perfil contém permissões que você não pode delegar neste escopo.',
                 ]);
@@ -95,7 +93,7 @@ final class AtribuirPerfilUsuario
         if ($tipoEscopo === 'organizacao') {
             $organizacao = OrganizacaoSaude::query()->where('ativo', true)->find($organizacaoId);
 
-            if (! $organizacao) {
+            if ($organizacao === null) {
                 throw ValidationException::withMessages(['organizacao_saude_id' => 'Selecione uma organização ativa.']);
             }
 
@@ -105,7 +103,7 @@ final class AtribuirPerfilUsuario
         if ($tipoEscopo === 'unidade') {
             $unidade = UnidadeSaude::query()->with('organizacao')->where('ativo', true)->find($unidadeId);
 
-            if (! $unidade || ! $unidade->organizacao?->ativo) {
+            if ($unidade === null || $unidade->organizacao?->ativo !== true) {
                 throw ValidationException::withMessages(['unidade_saude_id' => 'Selecione uma unidade ativa de uma organização ativa.']);
             }
 
