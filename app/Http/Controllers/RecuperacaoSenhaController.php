@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Aplicacao\Auditoria\RegistradorAuditoria;
+use App\Jobs\EnviarLinkRecuperacaoSenha;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
@@ -28,9 +29,12 @@ final class RecuperacaoSenhaController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        Password::sendResetLink($dados);
+        EnviarLinkRecuperacaoSenha::dispatch(strtolower($dados['email']));
 
-        return back()->with('status', 'Se existir uma conta ativa para este e-mail, enviaremos as instruções de recuperação.');
+        return back()->with(
+            'status',
+            'Sua solicitação foi recebida. Se existir uma conta ativa para este e-mail, enviaremos as instruções. Caso não receba, tente novamente após 60 segundos.',
+        );
     }
 
     public function redefinir(Request $request, string $token): Response
