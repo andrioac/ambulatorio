@@ -15,4 +15,8 @@ if [ ! -x node_modules/.bin/vite ] || [ "$LOCK_HASH" != "$INSTALLED_HASH" ]; the
     printf '%s' "$LOCK_HASH" > "$STAMP"
 fi
 
-exec npm run dev -- --host 0.0.0.0
+# O volume node_modules persiste entre reinícios. Remover o cache otimizado
+# evita referências antigas como /node_modules/.vite/deps/* com hash vencido.
+rm -rf node_modules/.vite
+
+exec npm run dev -- --host 0.0.0.0 --force
