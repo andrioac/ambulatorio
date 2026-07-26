@@ -24,15 +24,17 @@ final class AuditoriaController extends Controller
             'ate' => $request->query('ate'),
         ];
 
-        $sistema = $autorizador->possuiEscopoSistema($request->user(), 'auditoria.visualizar');
-        $organizacoes = $autorizador->organizacoesPermitidas($request->user(), 'auditoria.visualizar') ?? [];
+        $escopos = $autorizador->escoposDiretos($request->user(), 'auditoria.visualizar');
+        $sistema = $escopos['sistema'];
+        $organizacoesDiretas = $escopos['organizacoes'];
+        $organizacoesContexto = $autorizador->organizacoesPermitidas($request->user(), 'auditoria.visualizar') ?? [];
         $unidades = $autorizador->unidadesPermitidas($request->user(), 'auditoria.visualizar') ?? [];
 
         $registros = RegistroAuditoria::query()
             ->with(['ator:id,name,email', 'organizacao:id,nome', 'unidade:id,nome'])
-            ->when(! $sistema, fn ($query) => $query->where(function ($query) use ($request, $organizacoes, $unidades): void {
+            ->when(! $sistema, fn ($query) => $query->where(function ($query) use ($request, $organizacoesDiretas, $unidades): void {
                 $query->where('ator_user_id', $request->user()->id)
-                    ->orWhereIn('organizacao_saude_id', $organizacoes)
+                    ->orWhereIn('organizacao_saude_id', $organizacoesDiretas)
                     ->orWhereIn('unidade_saude_id', $unidades);
             }))
             ->when($filtros['evento'] !== '', fn ($query) => $query->where('evento', 'like', "%{$filtros['evento']}%"))
@@ -56,11 +58,13 @@ final class AuditoriaController extends Controller
             'registros' => $registros,
             'filtros' => $filtros,
             'organizacoes' => OrganizacaoSaude::query()
-                ->when(! $sistema, fn ($query) => $query->whereKey($organizacoes))
-                ->orderBy('nome')->get(['id', 'nome']),
+                ->when(! $sistema, fn ($query) => $query->whereKey($organizacoesContexto))
+                ->orderBy('nome')
+                ->get(['id', 'nome']),
             'unidades' => UnidadeSaude::query()
                 ->when(! $sistema, fn ($query) => $query->whereKey($unidades))
-                ->orderBy('nome')->get(['id', 'organizacao_saude_id', 'nome']),
+                ->orderBy('nome')
+                ->get(['id', 'organizacao_saude_id', 'nome']),
         ]);
     }
 }
