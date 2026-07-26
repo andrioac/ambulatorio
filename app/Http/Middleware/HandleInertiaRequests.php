@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AtribuicaoPerfil;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -55,10 +56,10 @@ class HandleInertiaRequests extends Middleware
             ->where(function ($query): void {
                 $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', now());
             })
-            ->with(['perfil.permissoes'])
+            ->with(['perfil.permissoes', 'organizacao', 'unidade.organizacao'])
             ->get()
-            ->filter(fn ($atribuicao) => $atribuicao->perfil?->ativo)
-            ->flatMap(fn ($atribuicao) => $atribuicao->perfil->permissoes->pluck('chave'))
+            ->filter(fn (AtribuicaoPerfil $atribuicao) => $this->atribuicaoConcedeAcesso($atribuicao))
+            ->flatMap(fn (AtribuicaoPerfil $atribuicao) => $atribuicao->perfil->permissoes->pluck('chave'))
             ->unique();
 
         foreach ($concedidas as $chave) {
@@ -69,5 +70,20 @@ class HandleInertiaRequests extends Middleware
             'usuario' => $usuario->only(['id', 'name', 'email']),
             'capacidades' => $capacidades,
         ];
+    }
+
+    private function atribuicaoConcedeAcesso(AtribuicaoPerfil $atribuicao): bool
+    {
+        if (! $atribuicao->perfil?->ativo) {
+            return false;
+        }
+
+        return match ($atribuicao->tipo_escopo) {
+            'sistema' => true,
+            'organizacao' => (bool) $atribuicao->organizacao?->ativo,
+            'unidade' => (bool) $atribuicao->unidade?->ativo
+                && (bool) $atribuicao->unidade?->organizacao?->ativo,
+            default => false,
+        };
     }
 }
