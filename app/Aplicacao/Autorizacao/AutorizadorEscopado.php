@@ -125,9 +125,22 @@ class AutorizadorEscopado
             ->where(function ($query): void {
                 $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', now());
             })
+            ->where(function ($query): void {
+                $query->where('tipo_escopo', 'sistema')
+                    ->orWhere(function ($query): void {
+                        $query->where('tipo_escopo', 'organizacao')
+                            ->whereHas('organizacao', fn ($query) => $query->where('ativo', true));
+                    })
+                    ->orWhere(function ($query): void {
+                        $query->where('tipo_escopo', 'unidade')
+                            ->whereHas('unidade', fn ($query) => $query
+                                ->where('ativo', true)
+                                ->whereHas('organizacao', fn ($query) => $query->where('ativo', true)));
+                    });
+            })
             ->whereHas('perfil', function ($query) use ($permissao): void {
                 $query->where('ativo', true)
-                    ->whereHas('permissoes', fn ($q) => $q->where('chave', $permissao));
+                    ->whereHas('permissoes', fn ($query) => $query->where('chave', $permissao));
             });
     }
 
