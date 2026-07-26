@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import AppBrand from '../../components/AppBrand.vue';
 import FormField from '../../components/FormField.vue';
 
+const page = usePage<{ flash?: { status?: string } }>();
 const logoUrl = '/brand/logo-mark.svg';
 const formulario = useForm({ email: '', password: '', remember: false });
 const enviar = () => formulario.post('/entrar', { onFinish: () => formulario.reset('password') });
@@ -30,9 +31,13 @@ const enviar = () => formulario.post('/entrar', { onFinish: () => formulario.res
                 <div class="auth-card__icone">♙</div>
                 <h2>Bem-vindo(a) de volta!</h2>
                 <p>Faça login para acessar o sistema</p>
+                <div v-if="page.props.flash?.status" class="mensagem mensagem--sucesso">{{ page.props.flash.status }}</div>
                 <FormField id="email" v-model="formulario.email" rotulo="E-mail" tipo="email" autocomplete="username" :erro="formulario.errors.email" obrigatorio />
                 <FormField id="password" v-model="formulario.password" rotulo="Senha" tipo="password" autocomplete="current-password" :erro="formulario.errors.password" obrigatorio />
-                <label class="auth-lembrar"><input v-model="formulario.remember" type="checkbox" /> Lembrar meu acesso</label>
+                <div class="auth-opcoes">
+                    <label class="auth-lembrar"><input v-model="formulario.remember" type="checkbox" /> Lembrar meu acesso</label>
+                    <Link href="/esqueci-minha-senha">Esqueci minha senha</Link>
+                </div>
                 <button class="botao botao--primario botao--largo" type="submit" :disabled="formulario.processing">{{ formulario.processing ? 'Entrando…' : 'Entrar' }}</button>
                 <p class="auth-card__nota">Seus dados são protegidos com segurança e acesso controlado.</p>
             </form>
