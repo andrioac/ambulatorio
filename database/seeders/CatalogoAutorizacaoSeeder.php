@@ -15,6 +15,7 @@ class CatalogoAutorizacaoSeeder extends Seeder
             'unidades.visualizar', 'unidades.administrar',
             'usuarios.visualizar', 'usuarios.administrar',
             'perfis.visualizar', 'perfis.administrar',
+            'profissionais.visualizar', 'profissionais.administrar',
             'auditoria.visualizar',
             'pacientes.visualizar', 'pacientes.administrar',
             'fila.visualizar', 'fila.administrar',
@@ -31,7 +32,16 @@ class CatalogoAutorizacaoSeeder extends Seeder
         $perfis = [
             'superadministrador_sistema' => $chaves,
             'administrador_organizacao' => array_values(array_filter($chaves, fn ($chave) => $chave !== 'organizacoes.administrar')),
-            'gestor_unidade' => ['unidades.visualizar', 'usuarios.visualizar', 'pacientes.visualizar', 'fila.visualizar', 'fila.administrar', 'auditoria.visualizar'],
+            'gestor_unidade' => [
+                'unidades.visualizar',
+                'usuarios.visualizar',
+                'profissionais.visualizar',
+                'profissionais.administrar',
+                'pacientes.visualizar',
+                'fila.visualizar',
+                'fila.administrar',
+                'auditoria.visualizar',
+            ],
             'auditor_sistema' => ['auditoria.visualizar'],
         ];
 
