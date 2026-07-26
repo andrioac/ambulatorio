@@ -24,6 +24,7 @@ class CatalogoAutorizacaoSeeder extends Seeder
 
         $permissoes = collect($chaves)->mapWithKeys(function (string $chave): array {
             $permissao = Permissao::query()->updateOrCreate(['chave' => $chave], ['descricao' => $chave]);
+
             return [$chave => $permissao];
         });
 
