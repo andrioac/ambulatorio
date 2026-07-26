@@ -103,10 +103,10 @@ class CasosUsoProfissionaisTest extends TestCase
             'id' => $vinculo->id,
             'profissional_id' => $profissional->id,
             'unidade_saude_id' => $unidade->id,
-            'vigente_de' => '2026-07-01',
-            'vigente_ate' => '2026-12-31',
             'ativo' => true,
         ]);
+        $this->assertSame('2026-07-01', $vinculo->vigente_de?->toDateString());
+        $this->assertSame('2026-12-31', $vinculo->vigente_ate?->toDateString());
 
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('A data final do vínculo não pode ser anterior à data inicial.');
