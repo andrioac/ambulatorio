@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import AppBrand from './AppBrand.vue';
 
 defineProps<{ titulo?: string }>();
+const page = usePage();
 const sair = () => router.post('/sair');
+const ativo = (prefixo: string) => page.url === prefixo || page.url.startsWith(`${prefixo}/`);
 </script>
 
 <template>
@@ -11,13 +13,14 @@ const sair = () => router.post('/sair');
         <aside class="app-sidebar">
             <AppBrand clara />
             <nav class="app-nav" aria-label="Navegação principal">
-                <Link href="/" class="app-nav__item app-nav__item--ativo">Visão geral</Link>
+                <Link href="/" class="app-nav__item" :class="{ 'app-nav__item--ativo': page.url === '/' }">Visão geral</Link>
                 <span class="app-nav__grupo">Atendimento</span>
                 <a class="app-nav__item app-nav__item--indisponivel" href="#">Pacientes</a>
                 <a class="app-nav__item app-nav__item--indisponivel" href="#">Fila de atendimento</a>
                 <a class="app-nav__item app-nav__item--indisponivel" href="#">Triagem</a>
                 <a class="app-nav__item app-nav__item--indisponivel" href="#">Prontuário</a>
                 <span class="app-nav__grupo">Administração</span>
+                <Link href="/profissionais" class="app-nav__item" :class="{ 'app-nav__item--ativo': ativo('/profissionais') }">Profissionais</Link>
                 <a class="app-nav__item app-nav__item--indisponivel" href="#">Unidades de saúde</a>
                 <a class="app-nav__item app-nav__item--indisponivel" href="#">Usuários e perfis</a>
                 <a class="app-nav__item app-nav__item--indisponivel" href="#">Auditoria</a>
