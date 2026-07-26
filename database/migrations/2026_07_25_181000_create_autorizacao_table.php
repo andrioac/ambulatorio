@@ -5,7 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table): void {
@@ -49,7 +50,9 @@ return new class extends Migration {
             $table->index(['user_id', 'ativo']);
         });
 
-        DB::statement("ALTER TABLE atribuicoes_perfil ADD CONSTRAINT atribuicoes_escopo_valido CHECK ((tipo_escopo = 'sistema' AND organizacao_saude_id IS NULL AND unidade_saude_id IS NULL) OR (tipo_escopo = 'organizacao' AND organizacao_saude_id IS NOT NULL AND unidade_saude_id IS NULL) OR (tipo_escopo = 'unidade' AND organizacao_saude_id IS NULL AND unidade_saude_id IS NOT NULL))");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement("ALTER TABLE atribuicoes_perfil ADD CONSTRAINT atribuicoes_escopo_valido CHECK ((tipo_escopo = 'sistema' AND organizacao_saude_id IS NULL AND unidade_saude_id IS NULL) OR (tipo_escopo = 'organizacao' AND organizacao_saude_id IS NOT NULL AND unidade_saude_id IS NULL) OR (tipo_escopo = 'unidade' AND organizacao_saude_id IS NULL AND unidade_saude_id IS NOT NULL))");
+        }
     }
 
     public function down(): void
