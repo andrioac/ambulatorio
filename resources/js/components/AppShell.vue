@@ -17,6 +17,7 @@ const page = usePage<{
         usuario: { id: number; name: string; email: string } | null;
         capacidades: Record<string, boolean>;
     };
+    flash?: { sucesso?: string };
 }>();
 
 const menuAberto = ref(false);
