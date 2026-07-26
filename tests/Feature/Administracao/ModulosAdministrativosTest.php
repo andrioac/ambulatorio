@@ -5,9 +5,11 @@ namespace Tests\Feature\Administracao;
 use App\Models\AtribuicaoPerfil;
 use App\Models\OrganizacaoSaude;
 use App\Models\Perfil;
+use App\Models\Permissao;
 use App\Models\RegistroAuditoria;
 use App\Models\UnidadeSaude;
 use App\Models\User;
+use Database\Seeders\CatalogoAutorizacaoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -109,7 +111,14 @@ class ModulosAdministrativosTest extends TestCase
         ])->assertRedirect();
 
         $gestor = User::query()->where('email', 'gestor@example.com')->firstOrFail();
-        $this->assertDatabaseHas('atribuicoes_perfil', ['user_id' => $gestor->id, 'perfil_id' => $perfilGestor->id, 'unidade_saude_id' => $unidade->id, 'ativo' => true]);
+        $this->assertDatabaseHas('atribuicoes_perfil', [
+            'user_id' => $gestor->id,
+            'perfil_id' => $perfilGestor->id,
+            'tipo_escopo' => 'unidade',
+            'organizacao_saude_id' => null,
+            'unidade_saude_id' => $unidade->id,
+            'ativo' => true,
+        ]);
 
         $this->actingAs($administrador)->post("/usuarios/{$gestor->id}/atribuicoes", [
             'perfil_id' => $perfilSuper->id,
@@ -126,6 +135,37 @@ class ModulosAdministrativosTest extends TestCase
             ->assertSessionHasErrors('atribuicao');
 
         $this->assertTrue($atribuicao->fresh()->ativo);
+    }
+
+    public function test_nao_inativa_o_ultimo_superadministrador_ativo(): void
+    {
+        $this->seed(CatalogoAutorizacaoSeeder::class);
+        $permissoes = Permissao::query()
+            ->whereIn('chave', ['usuarios.visualizar', 'usuarios.administrar'])
+            ->pluck('id');
+        $perfilAdministrador = Perfil::query()->create([
+            'nome' => 'Administrador de usuários para teste',
+            'chave' => 'administrador_usuarios_teste',
+            'protegido' => false,
+            'ativo' => true,
+        ]);
+        $perfilAdministrador->permissoes()->sync($permissoes);
+        $ator = User::factory()->create(['ativo' => true]);
+        AtribuicaoPerfil::query()->create([
+            'user_id' => $ator->id,
+            'perfil_id' => $perfilAdministrador->id,
+            'tipo_escopo' => 'sistema',
+            'ativo' => true,
+        ]);
+        $superadministrador = $this->criarUsuarioComPerfil();
+
+        $this->actingAs($ator)->put("/usuarios/{$superadministrador->id}", [
+            'name' => $superadministrador->name,
+            'email' => $superadministrador->email,
+            'ativo' => false,
+        ])->assertSessionHasErrors('ativo');
+
+        $this->assertTrue($superadministrador->fresh()->ativo);
     }
 
     public function test_auditoria_respeita_escopo_da_organizacao(): void
