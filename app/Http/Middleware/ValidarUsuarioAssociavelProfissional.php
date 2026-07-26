@@ -32,17 +32,12 @@ final class ValidarUsuarioAssociavelProfissional
 
         $ator = $request->user();
         $escopos = $this->autorizador->escoposDiretos($ator, 'usuarios.visualizar');
+        $consulta = User::query()->whereKey($userId)->where('ativo', true);
 
-        if ($escopos['sistema']) {
-            return $next($request);
-        }
+        if (! $escopos['sistema']) {
+            $unidades = $this->autorizador->unidadesPermitidas($ator, 'usuarios.visualizar') ?? [];
 
-        $unidades = $this->autorizador->unidadesPermitidas($ator, 'usuarios.visualizar') ?? [];
-
-        $permitido = User::query()
-            ->whereKey($userId)
-            ->where('ativo', true)
-            ->whereHas('atribuicoesPerfil', function ($query) use ($escopos, $unidades): void {
+            $consulta->whereHas('atribuicoesPerfil', function ($query) use ($escopos, $unidades): void {
                 $query->where('ativo', true)
                     ->where(function ($query): void {
                         $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', now());
@@ -59,12 +54,12 @@ final class ValidarUsuarioAssociavelProfissional
                                 ->whereIn('unidade_saude_id', $unidades);
                         });
                     });
-            })
-            ->exists();
+            });
+        }
 
-        if (! $permitido) {
+        if (! $consulta->exists()) {
             throw ValidationException::withMessages([
-                'user_id' => 'O usuário selecionado não pertence ao seu escopo autorizado.',
+                'user_id' => 'O usuário selecionado não está ativo ou não pertence ao seu escopo autorizado.',
             ]);
         }
 
