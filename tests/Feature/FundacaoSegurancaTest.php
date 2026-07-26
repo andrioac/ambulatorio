@@ -22,6 +22,17 @@ class FundacaoSegurancaTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_sessao_existente_e_encerrada_quando_usuario_e_inativado(): void
+    {
+        $usuario = User::factory()->create(['ativo' => false]);
+
+        $this->actingAs($usuario)->get('/')
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('status');
+
+        $this->assertGuest();
+    }
+
     public function test_resposta_possui_cabecalhos_defensivos(): void
     {
         $usuario = User::factory()->create(['ativo' => true]);
