@@ -2,12 +2,22 @@
 
 use App\Http\Controllers\AutenticacaoController;
 use App\Http\Controllers\ProfissionalController;
+use App\Http\Controllers\RecuperacaoSenhaController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/entrar', [AutenticacaoController::class, 'criar'])->name('login');
     Route::post('/entrar', [AutenticacaoController::class, 'armazenar'])->middleware('throttle:login');
+
+    Route::get('/esqueci-minha-senha', [RecuperacaoSenhaController::class, 'solicitar'])->name('password.request');
+    Route::post('/esqueci-minha-senha', [RecuperacaoSenhaController::class, 'enviarLink'])
+        ->middleware('throttle:6,1')
+        ->name('password.email');
+    Route::get('/redefinir-senha/{token}', [RecuperacaoSenhaController::class, 'redefinir'])->name('password.reset');
+    Route::post('/redefinir-senha', [RecuperacaoSenhaController::class, 'atualizar'])
+        ->middleware('throttle:6,1')
+        ->name('password.update');
 });
 
 Route::middleware('auth')->group(function (): void {
