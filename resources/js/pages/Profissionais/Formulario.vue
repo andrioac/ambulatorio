@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { reactive } from 'vue';
+import { reactive, watch } from 'vue';
 import AppShell from '../../components/AppShell.vue';
 import { formatarCns, formatarCpf } from '../../utils/formatadoresCampos';
 
@@ -19,12 +19,20 @@ const form = useForm({
     conselho_uf: props.profissional?.conselho_uf ?? '', ativo: props.profissional?.ativo ?? true, unidade_saude_id_inicial: '',
 });
 const vinculo = useForm({ unidade_saude_id: '', vigente_de: '', vigente_ate: '' });
-const edicoes = reactive<Record<number, { unidade_saude_id: number | string; vigente_de: string; vigente_ate: string }>>(
-    Object.fromEntries((props.profissional?.vinculos_unidades ?? []).map((item: any) => [item.id, {
-        unidade_saude_id: item.unidade_saude_id,
-        vigente_de: item.vigente_de ?? '',
-        vigente_ate: item.vigente_ate ?? '',
-    }])),
+const edicoes = reactive<Record<number, { unidade_saude_id: number | string; vigente_de: string; vigente_ate: string }>>({});
+
+watch(
+    () => props.profissional?.vinculos_unidades,
+    (itens: Array<any> = []) => {
+        for (const item of itens) {
+            edicoes[item.id] = {
+                unidade_saude_id: item.unidade_saude_id,
+                vigente_de: item.vigente_de ?? '',
+                vigente_ate: item.vigente_ate ?? '',
+            };
+        }
+    },
+    { immediate: true, deep: true },
 );
 
 const salvar = () => edicao ? form.put(`/profissionais/${props.profissional.id}`) : form.post('/profissionais');
@@ -71,7 +79,7 @@ const atualizarCns = (evento: Event) => { form.cns = formatarCns((evento.target 
                     <div><strong>{{ item.unidade.nome }}</strong><small>{{ item.unidade.organizacao.nome }} · {{ item.vigente_de || 'Sem início' }} até {{ item.vigente_ate || 'Sem término' }}</small></div>
                     <span class="status" :class="item.ativo ? 'status--ativo' : 'status--inativo'">{{ item.ativo ? 'Ativo' : 'Inativo' }}</span>
                     <div v-if="podeAdministrar" class="acoes-inline"><button v-if="item.ativo" class="botao botao--perigo" type="button" @click="desativarVinculo(item.id)">Desativar</button><button v-else class="botao botao--secundario" type="button" @click="reativarVinculo(item.id)">Reativar</button></div>
-                    <details v-if="podeAdministrar" class="vinculo-edicao"><summary>Editar vínculo</summary><form class="vinculo-form vinculo-form--interno" @submit.prevent="atualizarVinculo(item.id)"><select v-model="edicoes[item.id].unidade_saude_id" class="campo-formulario__controle" required><option v-for="u in unidades" :key="u.id" :value="u.id">{{ u.nome }} — {{ u.organizacao.nome }}</option></select><input v-model="edicoes[item.id].vigente_de" type="date" class="campo-formulario__controle" /><input v-model="edicoes[item.id].vigente_ate" type="date" class="campo-formulario__controle" /><button class="botao botao--secundario">Atualizar</button></form></details>
+                    <details v-if="podeAdministrar && edicoes[item.id]" class="vinculo-edicao"><summary>Editar vínculo</summary><form class="vinculo-form vinculo-form--interno" @submit.prevent="atualizarVinculo(item.id)"><select v-model="edicoes[item.id].unidade_saude_id" class="campo-formulario__controle" required><option v-for="u in unidades" :key="u.id" :value="u.id">{{ u.nome }} — {{ u.organizacao.nome }}</option></select><input v-model="edicoes[item.id].vigente_de" type="date" class="campo-formulario__controle" /><input v-model="edicoes[item.id].vigente_ate" type="date" class="campo-formulario__controle" /><button class="botao botao--secundario">Atualizar</button></form></details>
                 </article>
                 <p v-if="profissional.vinculos_unidades.length === 0" class="estado-vazio">Nenhum vínculo cadastrado.</p>
             </div>
