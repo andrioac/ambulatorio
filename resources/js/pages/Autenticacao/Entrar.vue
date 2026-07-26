@@ -36,7 +36,7 @@ const enviar = () => formulario.post('/entrar', { onFinish: () => formulario.res
                 <FormField id="password" v-model="formulario.password" rotulo="Senha" tipo="password" autocomplete="current-password" :erro="formulario.errors.password" obrigatorio />
                 <div class="auth-opcoes">
                     <label class="auth-lembrar"><input v-model="formulario.remember" type="checkbox" /> Lembrar meu acesso</label>
-                    <Link href="/esqueci-minha-senha">Esqueci minha senha</Link>
+                    <Link class="auth-esqueci-senha" href="/esqueci-minha-senha">Esqueci minha senha</Link>
                 </div>
                 <button class="botao botao--primario botao--largo" type="submit" :disabled="formulario.processing">{{ formulario.processing ? 'Entrando…' : 'Entrar' }}</button>
                 <p class="auth-card__nota">Seus dados são protegidos com segurança e acesso controlado.</p>
@@ -44,3 +44,38 @@ const enviar = () => formulario.post('/entrar', { onFinish: () => formulario.res
         </main>
     </div>
 </template>
+
+<style scoped>
+.auth-opcoes {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 1.2rem 0;
+}
+
+.auth-opcoes .auth-lembrar {
+    margin: 0;
+}
+
+.auth-esqueci-senha {
+    color: var(--verde-700);
+    font-size: .9rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.auth-esqueci-senha:hover,
+.auth-esqueci-senha:focus-visible {
+    color: var(--verde-900);
+    text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+    .auth-opcoes {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: .75rem;
+    }
+}
+</style>
