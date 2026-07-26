@@ -10,6 +10,7 @@ use App\Models\OrganizacaoSaude;
 use App\Models\Perfil;
 use App\Models\UnidadeSaude;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,21 +26,36 @@ final class UsuarioController extends Controller
     {
         $busca = trim((string) $request->query('busca'));
         $situacao = (string) $request->query('situacao');
-        $escopoSistema = $autorizador->possuiEscopoSistema($request->user(), 'usuarios.visualizar');
-        $organizacoes = $autorizador->organizacoesPermitidas($request->user(), 'usuarios.visualizar') ?? [];
+        $escopos = $autorizador->escoposDiretos($request->user(), 'usuarios.visualizar');
         $unidades = $autorizador->unidadesPermitidas($request->user(), 'usuarios.visualizar') ?? [];
 
         $usuarios = User::query()
             ->with(['profissional:id,user_id,nome,categoria'])
-            ->withCount(['atribuicoesPerfil as atribuicoes_ativas_count' => fn ($query) => $query->where('ativo', true)])
-            ->when(! $escopoSistema, fn ($query) => $query->whereHas('atribuicoesPerfil', function ($query) use ($organizacoes, $unidades): void {
-                $query->where('ativo', true)->where(function ($query) use ($organizacoes, $unidades): void {
-                    $query->where(function ($query) use ($organizacoes): void {
-                        $query->where('tipo_escopo', 'organizacao')->whereIn('organizacao_saude_id', $organizacoes);
-                    })->orWhere(function ($query) use ($unidades): void {
-                        $query->where('tipo_escopo', 'unidade')->whereIn('unidade_saude_id', $unidades);
+            ->withCount(['atribuicoesPerfil as atribuicoes_ativas_count' => fn ($query) => $query
+                ->where('ativo', true)
+                ->where(function ($query): void {
+                    $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', now());
+                })
+                ->where(function ($query): void {
+                    $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', now());
+                })])
+            ->when(! $escopos['sistema'], fn ($query) => $query->whereHas('atribuicoesPerfil', function ($query) use ($escopos, $unidades): void {
+                $query->where('ativo', true)
+                    ->where(function ($query): void {
+                        $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', now());
+                    })
+                    ->where(function ($query): void {
+                        $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', now());
+                    })
+                    ->where(function ($query) use ($escopos, $unidades): void {
+                        $query->where(function ($query) use ($escopos): void {
+                            $query->where('tipo_escopo', 'organizacao')
+                                ->whereIn('organizacao_saude_id', $escopos['organizacoes']);
+                        })->orWhere(function ($query) use ($unidades): void {
+                            $query->where('tipo_escopo', 'unidade')
+                                ->whereIn('unidade_saude_id', $unidades);
+                        });
                     });
-                });
             }))
             ->when($busca !== '', fn ($query) => $query->where(function ($query) use ($busca): void {
                 $query->where('name', 'like', "%{$busca}%")->orWhere('email', 'like', "%{$busca}%");
@@ -190,19 +206,18 @@ final class UsuarioController extends Controller
 
     private function catalogos(Request $request, AutorizadorEscopado $autorizador): array
     {
-        $organizacoes = $autorizador->organizacoesPermitidas($request->user(), 'usuarios.administrar');
+        $escopos = $autorizador->escoposDiretos($request->user(), 'usuarios.administrar');
         $unidades = $autorizador->unidadesPermitidas($request->user(), 'usuarios.administrar');
-        $podeEscopoSistema = $autorizador->possuiEscopoSistema($request->user(), 'usuarios.administrar');
 
         return [
             'perfis' => Perfil::query()
                 ->with('permissoes:id,chave')
                 ->where('ativo', true)
-                ->when(! $podeEscopoSistema, fn ($query) => $query->where('chave', '!=', 'superadministrador_sistema'))
+                ->when(! $escopos['sistema'], fn ($query) => $query->where('chave', '!=', 'superadministrador_sistema'))
                 ->orderBy('nome')
                 ->get(),
             'organizacoes' => OrganizacaoSaude::query()
-                ->when($organizacoes !== null, fn ($query) => $query->whereKey($organizacoes))
+                ->when(! $escopos['sistema'], fn ($query) => $query->whereKey($escopos['organizacoes']))
                 ->where('ativo', true)
                 ->orderBy('nome')
                 ->get(['id', 'nome']),
@@ -213,54 +228,70 @@ final class UsuarioController extends Controller
                 ->whereHas('organizacao', fn ($query) => $query->where('ativo', true))
                 ->orderBy('nome')
                 ->get(['id', 'organizacao_saude_id', 'nome']),
-            'podeEscopoSistema' => $podeEscopoSistema,
+            'podeEscopoSistema' => $escopos['sistema'],
         ];
     }
 
     private function podeVisualizar(User $ator, User $usuario, AutorizadorEscopado $autorizador): bool
     {
-        if ($autorizador->possuiEscopoSistema($ator, 'usuarios.visualizar')) {
+        $escopos = $autorizador->escoposDiretos($ator, 'usuarios.visualizar');
+
+        if ($escopos['sistema']) {
             return true;
         }
 
-        $organizacoes = $autorizador->organizacoesPermitidas($ator, 'usuarios.visualizar') ?? [];
         $unidades = $autorizador->unidadesPermitidas($ator, 'usuarios.visualizar') ?? [];
 
-        return $usuario->atribuicoesPerfil()->where('ativo', true)
-            ->where(function ($query) use ($organizacoes, $unidades): void {
-                $query->where(function ($query) use ($organizacoes): void {
-                    $query->where('tipo_escopo', 'organizacao')->whereIn('organizacao_saude_id', $organizacoes);
+        return $this->atribuicoesVigentes($usuario)
+            ->where(function ($query) use ($escopos, $unidades): void {
+                $query->where(function ($query) use ($escopos): void {
+                    $query->where('tipo_escopo', 'organizacao')
+                        ->whereIn('organizacao_saude_id', $escopos['organizacoes']);
                 })->orWhere(function ($query) use ($unidades): void {
-                    $query->where('tipo_escopo', 'unidade')->whereIn('unidade_saude_id', $unidades);
+                    $query->where('tipo_escopo', 'unidade')
+                        ->whereIn('unidade_saude_id', $unidades);
                 });
-            })->exists();
+            })
+            ->exists();
     }
 
     private function podeAdministrar(User $ator, User $usuario, AutorizadorEscopado $autorizador): bool
     {
-        if ($autorizador->possuiEscopoSistema($ator, 'usuarios.administrar')) {
+        $escopos = $autorizador->escoposDiretos($ator, 'usuarios.administrar');
+
+        if ($escopos['sistema']) {
             return true;
         }
 
-        $organizacoes = $autorizador->organizacoesPermitidas($ator, 'usuarios.administrar') ?? [];
         $unidades = $autorizador->unidadesPermitidas($ator, 'usuarios.administrar') ?? [];
-        $atribuicoes = $usuario->atribuicoesPerfil()->where('ativo', true)->get();
+        $atribuicoes = $this->atribuicoesVigentes($usuario)->get();
 
         if ($atribuicoes->isEmpty() || $atribuicoes->contains('tipo_escopo', 'sistema')) {
             return false;
         }
 
         return $atribuicoes->every(fn ($atribuicao) => match ($atribuicao->tipo_escopo) {
-            'organizacao' => in_array($atribuicao->organizacao_saude_id, $organizacoes, true),
+            'organizacao' => in_array($atribuicao->organizacao_saude_id, $escopos['organizacoes'], true),
             'unidade' => in_array($atribuicao->unidade_saude_id, $unidades, true),
             default => false,
         });
     }
 
+    private function atribuicoesVigentes(User $usuario): HasMany
+    {
+        return $usuario->atribuicoesPerfil()
+            ->where('ativo', true)
+            ->where(function ($query): void {
+                $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', now());
+            })
+            ->where(function ($query): void {
+                $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', now());
+            });
+    }
+
     private function protegerUltimoSuperadministrador(User $usuario): void
     {
-        $possuiSuperadministrador = $usuario->atribuicoesPerfil()
-            ->where('ativo', true)
+        $possuiSuperadministrador = $this->atribuicoesVigentes($usuario)
             ->whereHas('perfil', fn ($query) => $query
                 ->where('chave', 'superadministrador_sistema')
                 ->where('ativo', true))
@@ -273,6 +304,12 @@ final class UsuarioController extends Controller
         $outrosAtivos = AtribuicaoPerfil::query()
             ->where('ativo', true)
             ->where('user_id', '!=', $usuario->id)
+            ->where(function ($query): void {
+                $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', now());
+            })
+            ->where(function ($query): void {
+                $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', now());
+            })
             ->whereHas('usuario', fn ($query) => $query->where('ativo', true))
             ->whereHas('perfil', fn ($query) => $query
                 ->where('chave', 'superadministrador_sistema')
