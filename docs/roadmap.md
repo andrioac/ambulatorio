@@ -2,18 +2,43 @@
 
 O desenvolvimento será incremental. Cada sprint deve terminar com uma entrega demonstrável, documentação atualizada e critérios de aceite verificáveis.
 
+O Escolume é a base técnica de referência do projeto. Componentes genéricos compatíveis com Laravel 13, Inertia.js e Vue 3 serão transplantados para o Ambulatório e mantidos de forma independente após a cópia.
+
 | Sprint | Entrega principal |
 |---|---|
 | S00 | Ambiente Docker reproduzível |
-| S01 | Laravel, Inertia e Vue funcionando |
-| S02 | Autenticação, usuários, perfis e profissionais |
-| S03 | Unidades, salas, equipes e vínculos |
-| S04 | Cadastro e pesquisa de pacientes |
-| S05 | Recepção, atendimento inicial e fila |
-| S06 | Acolhimento, sinais vitais e triagem |
-| S07 | Prontuário longitudinal e consulta SOAP |
-| S08 | Receituário e documentos clínicos básicos |
-| S09 | Auditoria, relatórios e preparação da primeira versão |
+| S01 | Transplante da fundação técnica do Escolume |
+| S02 | Organizações e unidades de saúde |
+| S03 | Autorização escopada, usuários e perfis |
+| S04 | Auditoria persistente e segurança HTTP |
+| S05 | Profissionais e vínculos com unidades |
+| S06 | Cadastro e pesquisa de pacientes |
+| S07 | Recepção, atendimento inicial e fila |
+| S08 | Acolhimento, sinais vitais e triagem |
+| S09 | Prontuário longitudinal e consulta SOAP |
+| S10 | Receituário e documentos clínicos básicos |
+| S11 | Relatórios, hardening e preparação da primeira versão |
+
+## Estratégia de transplante
+
+A S01 reutilizará do Escolume:
+
+- autenticação, logout e recuperação de senha;
+- layout administrativo e componentes de formulário;
+- máscaras e formatadores de campos;
+- páginas de erro e tratamento Inertia;
+- configuração de testes e análise estática;
+- padrões de sessão, logs e segurança básica.
+
+As sprints S02 a S04 reutilizarão, com adaptação nominal do domínio:
+
+- contexto ativo;
+- perfis, permissões e atribuições escopadas;
+- administração de usuários;
+- auditoria append-only;
+- segurança HTTP e sanitização de logs.
+
+Não serão copiados módulos acadêmicos, dados de demonstração, identidade visual, segredos ou GitHub Actions.
 
 ## Regra de encerramento de sprint
 
