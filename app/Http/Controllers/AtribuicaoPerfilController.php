@@ -39,12 +39,14 @@ final class AtribuicaoPerfilController extends Controller
             $dados['unidade_saude_id'] ?? null,
             $dados['vigente_de'] ?? null,
             $dados['vigente_ate'] ?? null,
-        );
+        )->loadMissing('unidade');
+
+        $organizacaoId = $this->organizacaoDoEscopo($atribuicao);
 
         $auditoria->registrar('usuario.perfil_atribuido', [
             'entidade_tipo' => AtribuicaoPerfil::class,
             'entidade_id' => $atribuicao->id,
-            'organizacao_saude_id' => $atribuicao->organizacao_saude_id,
+            'organizacao_saude_id' => $organizacaoId,
             'unidade_saude_id' => $atribuicao->unidade_saude_id,
             'dados_posteriores' => [
                 'user_id' => $usuario->id,
@@ -66,11 +68,15 @@ final class AtribuicaoPerfilController extends Controller
         AutorizadorEscopado $autorizador,
         RegistradorAuditoria $auditoria,
     ): RedirectResponse {
-        $registro = $usuario->atribuicoesPerfil()->with('perfil')->findOrFail($atribuicao);
+        $registro = $usuario->atribuicoesPerfil()
+            ->with(['perfil', 'unidade'])
+            ->findOrFail($atribuicao);
+        $organizacaoId = $this->organizacaoDoEscopo($registro);
+
         $autorizador->exigir(
             $request->user(),
             'usuarios.administrar',
-            $registro->organizacao_saude_id,
+            $organizacaoId,
             $registro->unidade_saude_id,
         );
 
@@ -98,12 +104,18 @@ final class AtribuicaoPerfilController extends Controller
         $auditoria->registrar('usuario.perfil_revogado', [
             'entidade_tipo' => AtribuicaoPerfil::class,
             'entidade_id' => $registro->id,
-            'organizacao_saude_id' => $registro->organizacao_saude_id,
+            'organizacao_saude_id' => $organizacaoId,
             'unidade_saude_id' => $registro->unidade_saude_id,
             'dados_anteriores' => ['ativo' => true],
             'dados_posteriores' => ['ativo' => false],
         ], $request);
 
         return back()->with('sucesso', 'Atribuição revogada com sucesso.');
+    }
+
+    private function organizacaoDoEscopo(AtribuicaoPerfil $atribuicao): ?int
+    {
+        return $atribuicao->organizacao_saude_id
+            ?? $atribuicao->unidade?->organizacao_saude_id;
     }
 }
