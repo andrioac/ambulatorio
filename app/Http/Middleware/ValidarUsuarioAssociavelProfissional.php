@@ -31,18 +31,18 @@ final class ValidarUsuarioAssociavelProfissional
         }
 
         $ator = $request->user();
+        $escopos = $this->autorizador->escoposDiretos($ator, 'usuarios.visualizar');
 
-        if ($this->autorizador->possuiEscopoSistema($ator, 'usuarios.visualizar')) {
+        if ($escopos['sistema']) {
             return $next($request);
         }
 
-        $organizacoes = $this->autorizador->organizacoesPermitidas($ator, 'usuarios.visualizar') ?? [];
         $unidades = $this->autorizador->unidadesPermitidas($ator, 'usuarios.visualizar') ?? [];
 
         $permitido = User::query()
             ->whereKey($userId)
             ->where('ativo', true)
-            ->whereHas('atribuicoesPerfil', function ($query) use ($organizacoes, $unidades): void {
+            ->whereHas('atribuicoesPerfil', function ($query) use ($escopos, $unidades): void {
                 $query->where('ativo', true)
                     ->where(function ($query): void {
                         $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', now());
@@ -50,10 +50,10 @@ final class ValidarUsuarioAssociavelProfissional
                     ->where(function ($query): void {
                         $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', now());
                     })
-                    ->where(function ($query) use ($organizacoes, $unidades): void {
-                        $query->where(function ($query) use ($organizacoes): void {
+                    ->where(function ($query) use ($escopos, $unidades): void {
+                        $query->where(function ($query) use ($escopos): void {
                             $query->where('tipo_escopo', 'organizacao')
-                                ->whereIn('organizacao_saude_id', $organizacoes);
+                                ->whereIn('organizacao_saude_id', $escopos['organizacoes']);
                         })->orWhere(function ($query) use ($unidades): void {
                             $query->where('tipo_escopo', 'unidade')
                                 ->whereIn('unidade_saude_id', $unidades);
