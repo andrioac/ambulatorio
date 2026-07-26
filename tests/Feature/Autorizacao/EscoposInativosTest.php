@@ -36,9 +36,10 @@ class EscoposInativosTest extends TestCase
         $this->actingAs($gestor)->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $pagina) => $pagina
-                ->where('auth.capacidades', fn (Collection $capacidades) =>
-                    $capacidades->get('profissionais.visualizar') === false
-                    && $capacidades->get('auditoria.visualizar') === false));
+                ->where('auth.capacidades', function (Collection $capacidades): bool {
+                    return $capacidades->get('profissionais.visualizar') === false
+                        && $capacidades->get('auditoria.visualizar') === false;
+                }));
     }
 
     public function test_organizacao_inativa_invalida_permissao_da_unidade_filha(): void
