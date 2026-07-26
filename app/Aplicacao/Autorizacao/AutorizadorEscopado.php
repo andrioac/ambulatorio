@@ -16,9 +16,7 @@ class AutorizadorEscopado
 
     public function possuiEscopoSistema(User $usuario, string $permissao): bool
     {
-        return $this->atribuicoesValidas($usuario, $permissao)
-            ->where('tipo_escopo', 'sistema')
-            ->exists();
+        return $this->escoposDiretos($usuario, $permissao)['sistema'];
     }
 
     public function permite(User $usuario, string $permissao, ?int $organizacaoId = null, ?int $unidadeId = null): bool
@@ -34,30 +32,52 @@ class AutorizadorEscopado
     }
 
     /**
-     * Retorna null quando o usuário possui alcance de sistema.
+     * Escopos explicitamente atribuídos ao usuário, sem expandir unidade para organização.
+     *
+     * @return array{sistema: bool, organizacoes: array<int>, unidades: array<int>}
+     */
+    public function escoposDiretos(User $usuario, string $permissao): array
+    {
+        $atribuicoes = $this->atribuicoesValidas($usuario, $permissao)->get();
+
+        return [
+            'sistema' => $atribuicoes->contains('tipo_escopo', 'sistema'),
+            'organizacoes' => $atribuicoes
+                ->where('tipo_escopo', 'organizacao')
+                ->pluck('organizacao_saude_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'unidades' => $atribuicoes
+                ->where('tipo_escopo', 'unidade')
+                ->pluck('unidade_saude_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
+     * Retorna null quando o usuário possui alcance de sistema. Para navegação e
+     * contexto, inclui a organização-pai das unidades diretamente autorizadas.
      *
      * @return array<int>|null
      */
     public function organizacoesPermitidas(User $usuario, string $permissao): ?array
     {
-        $atribuicoes = $this->atribuicoesValidas($usuario, $permissao)->get();
+        $escopos = $this->escoposDiretos($usuario, $permissao);
 
-        if ($atribuicoes->contains('tipo_escopo', 'sistema')) {
+        if ($escopos['sistema']) {
             return null;
         }
 
-        $organizacoes = $atribuicoes
-            ->where('tipo_escopo', 'organizacao')
-            ->pluck('organizacao_saude_id');
+        $organizacoes = collect($escopos['organizacoes']);
 
-        $unidades = $atribuicoes
-            ->where('tipo_escopo', 'unidade')
-            ->pluck('unidade_saude_id')
-            ->filter();
-
-        if ($unidades->isNotEmpty()) {
+        if ($escopos['unidades'] !== []) {
             $organizacoes = $organizacoes->merge(
-                UnidadeSaude::query()->whereKey($unidades)->pluck('organizacao_saude_id'),
+                UnidadeSaude::query()->whereKey($escopos['unidades'])->pluck('organizacao_saude_id'),
             );
         }
 
@@ -65,30 +85,24 @@ class AutorizadorEscopado
     }
 
     /**
-     * Retorna null quando o usuário possui alcance de sistema.
+     * Retorna null quando o usuário possui alcance de sistema. Expande
+     * atribuições de organização para todas as suas unidades.
      *
      * @return array<int>|null
      */
     public function unidadesPermitidas(User $usuario, string $permissao): ?array
     {
-        $atribuicoes = $this->atribuicoesValidas($usuario, $permissao)->get();
+        $escopos = $this->escoposDiretos($usuario, $permissao);
 
-        if ($atribuicoes->contains('tipo_escopo', 'sistema')) {
+        if ($escopos['sistema']) {
             return null;
         }
 
-        $unidades = $atribuicoes
-            ->where('tipo_escopo', 'unidade')
-            ->pluck('unidade_saude_id');
+        $unidades = collect($escopos['unidades']);
 
-        $organizacoes = $atribuicoes
-            ->where('tipo_escopo', 'organizacao')
-            ->pluck('organizacao_saude_id')
-            ->filter();
-
-        if ($organizacoes->isNotEmpty()) {
+        if ($escopos['organizacoes'] !== []) {
             $unidades = $unidades->merge(
-                UnidadeSaude::query()->whereIn('organizacao_saude_id', $organizacoes)->pluck('id'),
+                UnidadeSaude::query()->whereIn('organizacao_saude_id', $escopos['organizacoes'])->pluck('id'),
             );
         }
 
