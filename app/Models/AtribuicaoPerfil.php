@@ -29,6 +29,16 @@ class AtribuicaoPerfil extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function organizacao(): BelongsTo
+    {
+        return $this->belongsTo(OrganizacaoSaude::class, 'organizacao_saude_id');
+    }
+
+    public function unidade(): BelongsTo
+    {
+        return $this->belongsTo(UnidadeSaude::class, 'unidade_saude_id');
+    }
+
     public function estaVigente(): bool
     {
         return $this->ativo && (! $this->vigente_de || $this->vigente_de->isPast()) && (! $this->vigente_ate || $this->vigente_ate->isFuture());
