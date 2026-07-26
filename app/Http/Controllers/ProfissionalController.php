@@ -151,7 +151,7 @@ final class ProfissionalController extends Controller
     ): RedirectResponse {
         abort_unless($this->podeAcessar($request->user(), $profissional, 'profissionais.administrar', $autorizador), 403);
         $registro = $profissional->vinculosUnidades()->with('unidade.organizacao')->findOrFail($vinculo);
-        $autorizador->exigir($request->user(), 'profissionais.administrar', $registro->unidade->organizacao_saude_id, $registro->unidade_id);
+        $autorizador->exigir($request->user(), 'profissionais.administrar', $registro->unidade->organizacao_saude_id, $registro->unidade_saude_id);
         $dados = $this->dadosVinculoValidados($request);
         $unidade = $this->resolverUnidadeAtiva($dados['unidade_saude_id']);
         $autorizador->exigir($request->user(), 'profissionais.administrar', $unidade->organizacao_saude_id, $unidade->id);
