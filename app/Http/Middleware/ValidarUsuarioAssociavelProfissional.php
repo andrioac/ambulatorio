@@ -12,15 +12,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ValidarUsuarioAssociavelProfissional
 {
-    public function __construct(private readonly AutorizadorEscopado $autorizador)
-    {
-    }
+    public function __construct(private readonly AutorizadorEscopado $autorizador) {}
 
     public function handle(Request $request, Closure $next): Response
     {
         $userId = $request->integer('user_id') ?: null;
 
-        if (! $userId) {
+        if ($userId === null) {
             return $next($request);
         }
 
@@ -34,7 +32,7 @@ final class ValidarUsuarioAssociavelProfissional
         $escopos = $this->autorizador->escoposDiretos($ator, 'usuarios.visualizar');
         $consulta = User::query()->whereKey($userId)->where('ativo', true);
 
-        if (! $escopos['sistema']) {
+        if ($escopos['sistema'] === false) {
             $unidades = $this->autorizador->unidadesPermitidas($ator, 'usuarios.visualizar') ?? [];
 
             $consulta->whereHas('atribuicoesPerfil', function ($query) use ($escopos, $unidades): void {
@@ -57,7 +55,7 @@ final class ValidarUsuarioAssociavelProfissional
             });
         }
 
-        if (! $consulta->exists()) {
+        if ($consulta->exists() === false) {
             throw ValidationException::withMessages([
                 'user_id' => 'O usuário selecionado não está ativo ou não pertence ao seu escopo autorizado.',
             ]);
