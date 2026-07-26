@@ -10,6 +10,6 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::middleware('auth')->group(function (): void {
-    Route::get('/', fn () => Inertia::render('Home'))->name('inicio');
+    Route::get('/', fn () => Inertia::render('Painel'))->name('inicio');
     Route::post('/sair', [AutenticacaoController::class, 'destruir'])->name('logout');
 });
