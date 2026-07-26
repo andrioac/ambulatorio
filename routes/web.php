@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfissionalController;
 use App\Http\Controllers\RecuperacaoSenhaController;
 use App\Http\Controllers\UnidadeSaudeController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Middleware\ValidarUsuarioAssociavelProfissional;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -56,8 +57,12 @@ Route::middleware('auth')->group(function (): void {
     });
     Route::middleware('permissao:profissionais.administrar')->group(function (): void {
         Route::get('/profissionais/novo', [ProfissionalController::class, 'create'])->name('profissionais.create');
-        Route::post('/profissionais', [ProfissionalController::class, 'store'])->name('profissionais.store');
-        Route::put('/profissionais/{profissional}', [ProfissionalController::class, 'update'])->name('profissionais.update');
+        Route::post('/profissionais', [ProfissionalController::class, 'store'])
+            ->middleware(ValidarUsuarioAssociavelProfissional::class)
+            ->name('profissionais.store');
+        Route::put('/profissionais/{profissional}', [ProfissionalController::class, 'update'])
+            ->middleware(ValidarUsuarioAssociavelProfissional::class)
+            ->name('profissionais.update');
         Route::post('/profissionais/{profissional}/vinculos', [ProfissionalController::class, 'salvarVinculo'])->name('profissionais.vinculos.store');
         Route::put('/profissionais/{profissional}/vinculos/{vinculo}', [ProfissionalController::class, 'atualizarVinculo'])->name('profissionais.vinculos.update');
         Route::delete('/profissionais/{profissional}/vinculos/{vinculo}', [ProfissionalController::class, 'removerVinculo'])->name('profissionais.vinculos.destroy');
