@@ -32,11 +32,18 @@ class RegistradorAuditoria
 
     private function sanitizar(mixed $valor): mixed
     {
-        if (! is_array($valor)) return $valor;
-        $resultado = [];
-        foreach ($valor as $chave => $item) {
-            $resultado[$chave] = in_array(strtolower((string) $chave), self::SENSIVEIS, true) ? '[REMOVIDO]' : $this->sanitizar($item);
+        if (! is_array($valor)) {
+            return $valor;
         }
+
+        $resultado = [];
+
+        foreach ($valor as $chave => $item) {
+            $resultado[$chave] = in_array(strtolower((string) $chave), self::SENSIVEIS, true)
+                ? '[REMOVIDO]'
+                : $this->sanitizar($item);
+        }
+
         return $resultado;
     }
 }
