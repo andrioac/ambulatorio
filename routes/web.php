@@ -12,7 +12,7 @@ Route::middleware('guest')->group(function (): void {
 
     Route::get('/esqueci-minha-senha', [RecuperacaoSenhaController::class, 'solicitar'])->name('password.request');
     Route::post('/esqueci-minha-senha', [RecuperacaoSenhaController::class, 'enviarLink'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:1,1')
         ->name('password.email');
     Route::get('/redefinir-senha/{token}', [RecuperacaoSenhaController::class, 'redefinir'])->name('password.reset');
     Route::post('/redefinir-senha', [RecuperacaoSenhaController::class, 'atualizar'])
