@@ -89,7 +89,10 @@ final class AtribuicaoPerfilController extends Controller
 
             $quantidade = AtribuicaoPerfil::query()
                 ->where('ativo', true)
-                ->whereHas('perfil', fn ($query) => $query->where('chave', 'superadministrador_sistema'))
+                ->whereHas('usuario', fn ($query) => $query->where('ativo', true))
+                ->whereHas('perfil', fn ($query) => $query
+                    ->where('chave', 'superadministrador_sistema')
+                    ->where('ativo', true))
                 ->count();
 
             if ($quantidade <= 1) {
