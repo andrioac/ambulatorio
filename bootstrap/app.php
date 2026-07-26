@@ -1,11 +1,14 @@
 <?php
 
 use App\Http\Middleware\AdicionarCabecalhosSeguranca;
+use App\Http\Middleware\ExigirPermissao;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'permissao' => ExigirPermissao::class,
+        ]);
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AdicionarCabecalhosSeguranca::class,
@@ -23,4 +30,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        $exceptions->respond(function (Response $response, Throwable $exception, Request $request): Response {
+            $status = $response->getStatusCode();
+
+            if (! $request->expectsJson() && in_array($status, [403, 404, 419, 422], true)) {
+                return Inertia::render('Erro', ['status' => $status])
+                    ->toResponse($request)
+                    ->setStatusCode($status);
+            }
+
+            return $response;
+        });
     })->create();
