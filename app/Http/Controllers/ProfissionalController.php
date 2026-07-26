@@ -27,9 +27,23 @@ final class ProfissionalController extends Controller
         $unidades = $autorizador->unidadesPermitidas($request->user(), 'profissionais.visualizar');
 
         $profissionais = Profissional::query()
-            ->when($unidades !== null, fn ($query) => $query->whereHas('vinculosUnidades', fn ($query) => $query->whereIn('unidade_saude_id', $unidades)))
+            ->when($unidades !== null, fn ($query) => $query->whereHas('vinculosUnidades', fn ($query) => $query
+                ->whereIn('unidade_saude_id', $unidades)
+                ->where('ativo', true)
+                ->where(function ($query): void {
+                    $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', today());
+                })
+                ->where(function ($query): void {
+                    $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', today());
+                })))
             ->withCount(['vinculosUnidades as vinculos_ativos_count' => fn ($query) => $query
                 ->where('ativo', true)
+                ->where(function ($query): void {
+                    $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', today());
+                })
+                ->where(function ($query): void {
+                    $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', today());
+                })
                 ->when($unidades !== null, fn ($query) => $query->whereIn('unidade_saude_id', $unidades))])
             ->when($busca !== '', fn ($query) => $query->where(function ($query) use ($busca): void {
                 $digitos = preg_replace('/\D/', '', $busca);
@@ -88,7 +102,7 @@ final class ProfissionalController extends Controller
         ], $request);
 
         if ($vinculo && $unidade) {
-            $this->auditarVinculo($request, $auditoria, 'profissional.vinculo_criado', $profissional, $vinculo, $unidade);
+            $this->auditarVinculo($request, $auditoria, 'profissional.vinculo_criado', $vinculo, $unidade);
         }
 
         return redirect()->route('profissionais.edit', $profissional)->with('sucesso', 'Profissional cadastrado com sucesso.');
@@ -136,7 +150,7 @@ final class ProfissionalController extends Controller
         $autorizador->exigir($request->user(), 'profissionais.administrar', $unidade->organizacao_saude_id, $unidade->id);
 
         $vinculo = $salvar->executar($profissional, $unidade, $dados['vigente_de'] ?? null, $dados['vigente_ate'] ?? null);
-        $this->auditarVinculo($request, $auditoria, 'profissional.vinculo_criado', $profissional, $vinculo, $unidade);
+        $this->auditarVinculo($request, $auditoria, 'profissional.vinculo_criado', $vinculo, $unidade);
 
         return back()->with('sucesso', 'Vínculo com unidade salvo com sucesso.');
     }
@@ -192,7 +206,7 @@ final class ProfissionalController extends Controller
         $registro->update(['ativo' => false]);
 
         $auditoria->registrar('profissional.vinculo_desativado', [
-            'entidade_tipo' => $registro::class,
+            'entidade_tipo' => VinculoProfissionalUnidade::class,
             'entidade_id' => $registro->id,
             'organizacao_saude_id' => $registro->unidade->organizacao_saude_id,
             'unidade_saude_id' => $registro->unidade_saude_id,
@@ -215,13 +229,15 @@ final class ProfissionalController extends Controller
         $autorizador->exigir($request->user(), 'profissionais.administrar', $registro->unidade->organizacao_saude_id, $registro->unidade_saude_id);
 
         if (! $registro->unidade->ativo || ! $registro->unidade->organizacao?->ativo) {
-            throw ValidationException::withMessages(['vinculo' => 'Não é possível reativar um vínculo com unidade ou organização inativa.']);
+            throw ValidationException::withMessages([
+                'vinculo' => 'Não é possível reativar um vínculo com unidade ou organização inativa.',
+            ]);
         }
 
         $registro->update(['ativo' => true]);
 
         $auditoria->registrar('profissional.vinculo_reativado', [
-            'entidade_tipo' => $registro::class,
+            'entidade_tipo' => VinculoProfissionalUnidade::class,
             'entidade_id' => $registro->id,
             'organizacao_saude_id' => $registro->unidade->organizacao_saude_id,
             'unidade_saude_id' => $registro->unidade_saude_id,
@@ -235,17 +251,28 @@ final class ProfissionalController extends Controller
     private function formulario(Request $request, AutorizadorEscopado $autorizador, ?Profissional $profissional = null): Response
     {
         $unidadesPermitidas = $autorizador->unidadesPermitidas($request->user(), 'profissionais.administrar');
-        $organizacoesPermitidas = $autorizador->organizacoesPermitidas($request->user(), 'usuarios.visualizar');
-        $unidadesUsuarios = $autorizador->unidadesPermitidas($request->user(), 'usuarios.visualizar');
-        $sistemaUsuarios = $autorizador->possuiEscopoSistema($request->user(), 'usuarios.visualizar');
+        $escoposUsuarios = $autorizador->escoposDiretos($request->user(), 'usuarios.visualizar');
+        $unidadesUsuarios = $autorizador->unidadesPermitidas($request->user(), 'usuarios.visualizar') ?? [];
 
         $usuarios = User::query()
             ->where('ativo', true)
-            ->when(! $sistemaUsuarios, fn ($query) => $query->whereHas('atribuicoesPerfil', function ($query) use ($organizacoesPermitidas, $unidadesUsuarios): void {
-                $query->where('ativo', true)->where(function ($query) use ($organizacoesPermitidas, $unidadesUsuarios): void {
-                    $query->whereIn('organizacao_saude_id', $organizacoesPermitidas ?? [])
-                        ->orWhereIn('unidade_saude_id', $unidadesUsuarios ?? []);
-                });
+            ->when(! $escoposUsuarios['sistema'], fn ($query) => $query->whereHas('atribuicoesPerfil', function ($query) use ($escoposUsuarios, $unidadesUsuarios): void {
+                $query->where('ativo', true)
+                    ->where(function ($query): void {
+                        $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', now());
+                    })
+                    ->where(function ($query): void {
+                        $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', now());
+                    })
+                    ->where(function ($query) use ($escoposUsuarios, $unidadesUsuarios): void {
+                        $query->where(function ($query) use ($escoposUsuarios): void {
+                            $query->where('tipo_escopo', 'organizacao')
+                                ->whereIn('organizacao_saude_id', $escoposUsuarios['organizacoes']);
+                        })->orWhere(function ($query) use ($unidadesUsuarios): void {
+                            $query->where('tipo_escopo', 'unidade')
+                                ->whereIn('unidade_saude_id', $unidadesUsuarios);
+                        });
+                    });
             }))
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
@@ -314,7 +341,9 @@ final class ProfissionalController extends Controller
         $unidade = UnidadeSaude::query()->with('organizacao')->findOrFail($unidadeId);
 
         if (! $unidade->ativo || ! $unidade->organizacao?->ativo) {
-            throw ValidationException::withMessages(['unidade_saude_id' => 'Selecione uma unidade ativa de uma organização ativa.']);
+            throw ValidationException::withMessages([
+                'unidade_saude_id' => 'Selecione uma unidade ativa de uma organização ativa.',
+            ]);
         }
 
         return $unidade;
@@ -328,7 +357,16 @@ final class ProfissionalController extends Controller
 
         $unidades = $autorizador->unidadesPermitidas($usuario, $permissao) ?? [];
 
-        return $profissional->vinculosUnidades()->whereIn('unidade_saude_id', $unidades)->exists();
+        return $profissional->vinculosUnidades()
+            ->whereIn('unidade_saude_id', $unidades)
+            ->where('ativo', true)
+            ->where(function ($query): void {
+                $query->whereNull('vigente_de')->orWhere('vigente_de', '<=', today());
+            })
+            ->where(function ($query): void {
+                $query->whereNull('vigente_ate')->orWhere('vigente_ate', '>=', today());
+            })
+            ->exists();
     }
 
     private function camposAuditaveis(): array
@@ -354,7 +392,6 @@ final class ProfissionalController extends Controller
         Request $request,
         RegistradorAuditoria $auditoria,
         string $evento,
-        Profissional $profissional,
         VinculoProfissionalUnidade $vinculo,
         UnidadeSaude $unidade,
     ): void {
@@ -363,7 +400,7 @@ final class ProfissionalController extends Controller
             'entidade_id' => $vinculo->id,
             'organizacao_saude_id' => $unidade->organizacao_saude_id,
             'unidade_saude_id' => $unidade->id,
-            'dados_posteriores' => $this->dadosAuditaveisVinculo($vinculo) + ['profissional_id' => $profissional->id],
+            'dados_posteriores' => $this->dadosAuditaveisVinculo($vinculo),
         ], $request);
     }
 }
