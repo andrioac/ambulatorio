@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import AppShell from '../components/AppShell.vue';
+
+const logoUrl = '/brand/logo-mark.svg';
 </script>
 
 <template>
@@ -12,7 +14,7 @@ import AppShell from '../components/AppShell.vue';
                 <h2>Bem-vindo ao Ambulatório Inteligente</h2>
                 <p>A fundação segura do sistema está pronta para receber os fluxos de pacientes, fila, triagem e prontuário.</p>
             </div>
-            <img src="/brand/logo-mark.svg" alt="" />
+            <img :src="logoUrl" alt="" />
         </section>
 
         <section class="painel-grid" aria-label="Módulos planejados">
