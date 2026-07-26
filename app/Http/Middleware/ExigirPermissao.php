@@ -9,9 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ExigirPermissao
 {
-    public function __construct(private readonly AutorizadorEscopado $autorizador)
-    {
-    }
+    public function __construct(private readonly AutorizadorEscopado $autorizador) {}
 
     public function handle(Request $request, Closure $next, string $permissao): Response
     {
