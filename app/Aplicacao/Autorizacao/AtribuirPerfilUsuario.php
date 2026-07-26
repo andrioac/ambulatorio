@@ -26,7 +26,11 @@ final class AtribuirPerfilUsuario
         ?string $vigenteDe = null,
         ?string $vigenteAte = null,
     ): AtribuicaoPerfil {
-        [$organizacaoId, $unidadeId] = $this->validarEscopo($tipoEscopo, $organizacaoId, $unidadeId);
+        [$organizacaoPersistidaId, $unidadePersistidaId, $organizacaoAlvoId] = $this->validarEscopo(
+            $tipoEscopo,
+            $organizacaoId,
+            $unidadeId,
+        );
 
         if ($tipoEscopo === 'sistema' && ! $this->autorizador->possuiEscopoSistema($ator, 'usuarios.administrar')) {
             throw ValidationException::withMessages([
@@ -34,7 +38,7 @@ final class AtribuirPerfilUsuario
             ]);
         }
 
-        $this->autorizador->exigir($ator, 'usuarios.administrar', $organizacaoId, $unidadeId);
+        $this->autorizador->exigir($ator, 'usuarios.administrar', $organizacaoAlvoId, $unidadePersistidaId);
 
         if (! $perfil->ativo) {
             throw ValidationException::withMessages(['perfil_id' => 'O perfil selecionado está inativo.']);
@@ -48,7 +52,7 @@ final class AtribuirPerfilUsuario
         $perfil->loadMissing('permissoes');
 
         foreach ($perfil->permissoes as $permissao) {
-            if (! $this->autorizador->permite($ator, $permissao->chave, $organizacaoId, $unidadeId)) {
+            if (! $this->autorizador->permite($ator, $permissao->chave, $organizacaoAlvoId, $unidadePersistidaId)) {
                 throw ValidationException::withMessages([
                     'perfil_id' => 'O perfil contém permissões que você não pode delegar neste escopo.',
                 ]);
@@ -58,8 +62,8 @@ final class AtribuirPerfilUsuario
         $duplicada = $usuario->atribuicoesPerfil()
             ->where('perfil_id', $perfil->id)
             ->where('tipo_escopo', $tipoEscopo)
-            ->where('organizacao_saude_id', $organizacaoId)
-            ->where('unidade_saude_id', $unidadeId)
+            ->where('organizacao_saude_id', $organizacaoPersistidaId)
+            ->where('unidade_saude_id', $unidadePersistidaId)
             ->where('ativo', true)
             ->exists();
 
@@ -71,19 +75,21 @@ final class AtribuirPerfilUsuario
             'user_id' => $usuario->id,
             'perfil_id' => $perfil->id,
             'tipo_escopo' => $tipoEscopo,
-            'organizacao_saude_id' => $organizacaoId,
-            'unidade_saude_id' => $unidadeId,
+            'organizacao_saude_id' => $organizacaoPersistidaId,
+            'unidade_saude_id' => $unidadePersistidaId,
             'vigente_de' => $vigenteDe,
             'vigente_ate' => $vigenteAte,
             'ativo' => true,
         ]));
     }
 
-    /** @return array{0: int|null, 1: int|null} */
+    /**
+     * @return array{0: int|null, 1: int|null, 2: int|null}
+     */
     private function validarEscopo(string $tipoEscopo, ?int $organizacaoId, ?int $unidadeId): array
     {
         if ($tipoEscopo === 'sistema') {
-            return [null, null];
+            return [null, null, null];
         }
 
         if ($tipoEscopo === 'organizacao') {
@@ -93,7 +99,7 @@ final class AtribuirPerfilUsuario
                 throw ValidationException::withMessages(['organizacao_saude_id' => 'Selecione uma organização ativa.']);
             }
 
-            return [$organizacao->id, null];
+            return [$organizacao->id, null, $organizacao->id];
         }
 
         if ($tipoEscopo === 'unidade') {
@@ -103,7 +109,7 @@ final class AtribuirPerfilUsuario
                 throw ValidationException::withMessages(['unidade_saude_id' => 'Selecione uma unidade ativa de uma organização ativa.']);
             }
 
-            return [$unidade->organizacao_saude_id, $unidade->id];
+            return [null, $unidade->id, $unidade->organizacao_saude_id];
         }
 
         throw ValidationException::withMessages(['tipo_escopo' => 'O tipo de escopo informado é inválido.']);
