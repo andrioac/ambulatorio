@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppShell from '../../components/AppShell.vue';
 
@@ -29,8 +29,8 @@ const form = useForm({
 const atribuicao = useForm({ perfil_id: '', tipo_escopo: props.podeEscopoSistema ? 'sistema' : (props.organizacoes.length ? 'organizacao' : 'unidade'), organizacao_saude_id: '', unidade_saude_id: '', vigente_de: '', vigente_ate: '' });
 
 const salvar = () => edicao ? form.put(`/usuarios/${props.usuario.id}`, { onSuccess: () => form.reset('password', 'password_confirmation') }) : form.post('/usuarios');
-const atribuir = () => atribuicao.post(`/usuarios/${props.usuario.id}/atribuicoes`, { onSuccess: () => atribuicao.reset() });
-const revogar = (id: number) => router.delete(`/usuarios/${props.usuario.id}/atribuicoes/${id}`);
+const atribuir = () => atribuicao.post(`/usuarios/${props.usuario.id}/atribuicoes`, { preserveScroll: true, onSuccess: () => atribuicao.reset() });
+const revogar = (id: number) => atribuicao.delete(`/usuarios/${props.usuario.id}/atribuicoes/${id}`, { preserveScroll: true });
 const escopos = computed(() => [
     ...(props.podeEscopoSistema ? [{ valor: 'sistema', rotulo: 'Sistema' }] : []),
     ...(props.organizacoes.length ? [{ valor: 'organizacao', rotulo: 'Organização' }] : []),
