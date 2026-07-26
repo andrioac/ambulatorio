@@ -1,23 +1,34 @@
-# S03 — Unidades e Estrutura Operacional
+# S03 — Autorização Escopada, Usuários e Perfis
 
 ## Objetivo
-Modelar onde e por quem os atendimentos são realizados.
 
-## Escopo
-- unidades de saúde com identificação e CNES opcional;
-- salas e consultórios;
-- equipes;
-- vínculo de profissionais com unidades e equipes;
-- período de vigência e situação dos vínculos;
-- restrição de acesso por unidade;
-- seleção da unidade ativa na sessão.
+Transportar do Escolume a fundação de identidade global, perfis, permissões e atribuições por escopo.
 
-## Critérios de aceite
-- profissional pode atuar em mais de uma unidade;
-- usuário acessa somente unidades autorizadas;
-- vínculos inativos não permitem nova operação;
-- salas pertencem a uma única unidade;
-- alterações relevantes são auditadas.
+## Entregas implementadas
 
-## Fora do escopo
-Agenda, pacientes, fila e prontuário.
+- usuário com estado ativo/inativo;
+- catálogo de permissões;
+- perfis protegidos;
+- vínculo perfil-permissão;
+- atribuições nos escopos `sistema`, `organizacao` e `unidade`;
+- vigência, ativação e revogação lógica;
+- constraint PostgreSQL para impedir combinações inválidas de escopo;
+- autorizador central no backend;
+- catálogo estrutural idempotente em seeder;
+- perfis iniciais de superadministrador, administrador da organização, gestor da unidade e auditor.
+
+## Princípios preservados do Escolume
+
+- contexto ativo não concede autorização;
+- autorização definitiva ocorre no servidor;
+- usuário é identidade global;
+- profissão não é perfil de acesso;
+- uma permissão somente vale quando perfil, atribuição, vigência e escopo são válidos.
+
+## Próximas extensões
+
+- interface administrativa de usuários e atribuições;
+- comando explícito de bootstrap do superadministrador;
+- regras de delegação e proteção contra autoelevação;
+- contexto ativo persistido em sessão;
+- testes de isolamento entre organizações e unidades.
