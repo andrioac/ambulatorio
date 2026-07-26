@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfissionalController;
 use App\Http\Controllers\RecuperacaoSenhaController;
 use App\Http\Controllers\UnidadeSaudeController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Middleware\GarantirUsuarioAtivo;
 use App\Http\Middleware\ValidarUsuarioAssociavelProfissional;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -27,7 +28,7 @@ Route::middleware('guest')->group(function (): void {
         ->name('password.update');
 });
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(['auth', GarantirUsuarioAtivo::class])->group(function (): void {
     Route::get('/', fn () => Inertia::render('Painel'))->name('inicio');
     Route::post('/sair', [AutenticacaoController::class, 'destruir'])->name('logout');
 
